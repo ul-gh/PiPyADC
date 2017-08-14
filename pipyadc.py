@@ -324,6 +324,8 @@ class ADS1256(object):
         # This is approx. 30ms, according to the datasheet.
         time.sleep(0.03)
         self.wait_DRDY()
+        # Device reset for defined initial state
+        self.reset()
 
         # Configure ADC registers:
         # Status register not yet set, only variable written to avoid multiple
