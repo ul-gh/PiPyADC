@@ -45,8 +45,11 @@ PDWN_PIN    = 13
 # sample rate of 2.5 SPS and issuing a self calibration command,
 # the timeout can be up to 1228 milliseconds:
 DRDY_TIMEOUT    = 2
+# Optional delay in seconds to avoid busy wait and reduce CPU load when
+# polling the DRDY pin. Default is 0.000001 or 1 µs (timing not accurate)
+DRDY_DELAY      = 0.000001
 # Master clock rate in Hz. Default is 7680000:
-CLKIN_FREQUENCY  = 7680000
+CLKIN_FREQUENCY = 7680000
 ################################################################################
 
 

@@ -273,6 +273,7 @@ class ADS1256(object):
         self.DRDY_PIN     = conf.DRDY_PIN
         self.CS_PIN       = conf.CS_PIN
         self.DRDY_TIMEOUT = conf.DRDY_TIMEOUT
+        self.DRDY_DELAY   = conf.DRDY_DELAY
 
         # Only one GPIO input:
         if conf.DRDY_PIN is not None:
@@ -398,6 +399,8 @@ class ADS1256(object):
             while (drdy_level == wp.HIGH) and (elapsed < self.DRDY_TIMEOUT):
                 elapsed = time.time() - start
                 drdy_level = wp.digitalRead(self.DRDY_PIN)
+                # Delay in order to avoid busy wait and reduce CPU load.
+                time.sleep(self.DRDY_DELAY)
             if elapsed >= self.DRDY_TIMEOUT:
                 print("\nWarning: Timeout while polling configured DRDY pin!\n")
         else:
