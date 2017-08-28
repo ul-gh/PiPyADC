@@ -340,11 +340,6 @@ class ADS1256(object):
         self.status        = conf.status
 
 
-        # For cyclic read usig the read_sequence() function, the very first
-        # iteration needs to be treated specially. The function uses this flag.
-        self._rs_firstrun  = True
- 
-
     def _chip_select(self):
         # If chip select hardware pin is connected to SPI bus hardware pin or
         # hardwired to GND, do nothing.
@@ -713,8 +708,15 @@ class ADS1256(object):
             return int24_result - 0x1000000
 
 
-    def read_sequence(self, ch_sequence, ch_buffer=None):
-        """Reads a sequence of ADC input channel pin pairs
+    def read_continue(self, ch_sequence, ch_buffer=None):
+        """Continues reading a cyclic sequence of ADC input channel pin pairs.
+
+        The first data sample is only valid if the ADC data register contains
+        valid data from a previous conversion.
+
+        For short sequences, this is faster than the read_sequence() method
+        because it does not interrupt an already running and pre-configured
+        conversion cycle.
 
         Argument1:  Tuple (list) of 8-bit code values for differential
                     input channel pins to read sequentially in a cycle.
@@ -736,13 +738,38 @@ class ADS1256(object):
         buf_len = len(ch_sequence)
         if ch_buffer is None:
             ch_buffer = [0] * buf_len
-        # If this is the very first iteration of any cycle, the input
-        # multiplexer must be configured for the first item in the
-        # defined channel sequence.
-        if self._rs_firstrun is True:
-            self._rs_firstrun = False
-            self.mux = ch_sequence[0]
-            self.sync()
+        for i in range(0, buf_len):
+            ch_buffer[i] = self.read_and_next_is(ch_sequence[(i+1)%buf_len])
+        return ch_buffer
+
+
+    def read_sequence(self, ch_sequence, ch_buffer=None):
+        """Reads a sequence of ADC input channel pin pairs.
+
+        Restarts and re-syncs the ADC for the first sample.
+
+        Argument1:  Tuple (list) of 8-bit code values for differential
+                    input channel pins to read sequentially in a cycle.
+                    (See definitions for the REG_MUX register)
+
+                    Example:
+                    ch_sequence=(POS_AIN0|NEG_AIN1, POS_AIN2|NEG_AINCOM)
+
+        Argument2:  List (array, buffer) of signed integer conversion
+                    results for the sequence of input channels.
+
+        Returns:    List (array, buffer) of signed integer conversion
+                    results for the sequence of input channels.
+
+        This implements the timing sequence outlined in the ADS1256
+        datasheet (Sept.2013) on page 21, figure 19: "Cycling the
+        ADS1256 Input Multiplexer" for cyclic data acquisition.
+        """
+        self.mux = ch_sequence[0]
+        self.sync()
+        buf_len = len(ch_sequence)
+        if ch_buffer is None:
+            ch_buffer = [0] * buf_len
         for i in range(0, buf_len):
             ch_buffer[i] = self.read_and_next_is(ch_sequence[(i+1)%buf_len])
         return ch_buffer
