@@ -712,7 +712,9 @@ class ADS1256(object):
         """Continues reading a cyclic sequence of ADC input channel pin pairs.
 
         The first data sample is only valid if the ADC data register contains
-        valid data from a previous conversion.
+        valid data from a previous conversion. I.e. the last element of the
+        ch_sequence must be the first channel configuration to be read during
+        the next following cycle.
 
         For short sequences, this is faster than the read_sequence() method
         because it does not interrupt an already running and pre-configured
@@ -747,6 +749,9 @@ class ADS1256(object):
         """Reads a sequence of ADC input channel pin pairs.
 
         Restarts and re-syncs the ADC for the first sample.
+
+        The time delay resulting from this can be avoided when reading
+        the ADC in a cyclical pattern using the read_continue() method.
 
         Argument1:  Tuple (list) of 8-bit code values for differential
                     input channel pins to read sequentially in a cycle.
