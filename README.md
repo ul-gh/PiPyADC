@@ -5,6 +5,11 @@ to-digital converters with the Raspberry Pi.
 Currently only implemented class in this module is ADS1256 for the
 ADS1255 and ADS1256 chips which are register- and command compatible.
 
+Implementation for the ADS1255 and ADS1256 is an implementation based
+purely on Python and the WiringPi API. On a Raspberry Pi 3, multi-channel
+ADC reads require a time overhead of aprox. 300...500 µs which makes the
+library suitable for low-speed, high resolution data acquisition.
+
 Download: https://github.com/ul-gh/PiPyADC
 
 Depends on WiringPi library, see:
