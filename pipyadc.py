@@ -18,6 +18,7 @@ https://www.gnu.org/licenses/old-licenses/lgpl-2.1-standalone.html
 Ulrich Lukas, 2017-03-03
 """
 import time
+import pigpio as io
 import wiringpi as wp
 from ADS1256_definitions import *
 import ADS1256_default_config
