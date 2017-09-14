@@ -265,9 +265,10 @@ class ADS1256(object):
     # Register/Configuration Flag settings are initialized, but these
     # can be changed during runtime via class properties.
     # Default config is read from external file (module) import
-    def __init__(self, conf=ADS1256_default_config):
-        # Set up the pigpio object
-        pi = io.pi()
+    def __init__(self, conf=ADS1256_default_config, pi=None):
+        # Set up the pigpio object if not provided as an argument
+        if pi is None:
+            pi = io.pi()
         self.pi = pi
         if not pi.connected:
             raise IOError("Could not connect to hardware via pigpio library")
@@ -293,7 +294,7 @@ class ADS1256(object):
         
         # Initialize the pigpio SPI setup. Return value is a handle for the
         # SPI device.
-        self.spi0 = pi.spi_open(
+        self.spi_id = pi.spi_open(
             conf.SPI_CHANNEL, conf.SPI_FREQUENCY, conf.SPI_FLAGS
         )
         
@@ -357,11 +358,11 @@ class ADS1256(object):
 
     def _send_byte(self, mybyte):
         # Sends a byte via the SPI bus
-        self.pi.spi_write(self.spi0, chr(mybyte&0xFF))
+        self.pi.spi_write(self.spi_id, chr(mybyte&0xFF))
 
     def _read_byte(self):
         # Returns a byte read via the SPI bus
-        ret_tuple = self.pi.spi_read(self.spi0, 1)
+        ret_tuple = self.pi.spi_read(self.spi_id, 1)
         return ord(ret_tuple[1])
 
 
@@ -405,9 +406,9 @@ class ADS1256(object):
         Argument: register address
         """
         self._chip_select()
-        self.pi.spi_write(self.spi0, [CMD_RREG|register, 0x00])
+        self.pi.spi_write(self.spi_id, [CMD_RREG|register, 0x00])
         wp.delayMicroseconds(self._DATA_TIMEOUT_US)
-        ret_tuple = self.pi.spi_read(self.spi0, 1)
+        ret_tuple = self.pi.spi_read(self.spi_id, 1)
         # Release chip select and implement t_11 timeout
         self._chip_release()
         return ord(ret_tuple[1])
@@ -419,7 +420,7 @@ class ADS1256(object):
         Arguments: register address, data byte (uint_8)
         """
         self._chip_select()
-        self.pi.spi_write(self.spi0, [CMD_WREG|register, 0x00, data])
+        self.pi.spi_write(self.spi_id, [CMD_WREG|register, 0x00, data])
         # Release chip select and implement t_11 timeout
         self._chip_release()
 
@@ -431,7 +432,7 @@ class ADS1256(object):
         Sets the ADS1255/ADS1256 OFC register.
         """
         self._chip_select()
-        self.pi.spi_write(self.spi0, [CMD_SELFOCAL])
+        self.pi.spi_write(self.spi_id, [CMD_SELFOCAL])
         self.wait_DRDY()
         # Release chip select and implement t_11 timeout
         self._chip_release()
@@ -444,7 +445,7 @@ class ADS1256(object):
         Sets the ADS1255/ADS1256 FSC register.
         """
         self._chip_select()
-        self.pi.spi_write(self.spi0, [CMD_SELFGCAL])
+        self.pi.spi_write(self.spi_id, [CMD_SELFGCAL])
         self.wait_DRDY()
         # Release chip select and implement t_11 timeout
         self._chip_release()
@@ -457,7 +458,7 @@ class ADS1256(object):
         Sets the ADS1255/ADS1256 OFC and FSC registers.
         """
         self._chip_select()
-        self.pi.spi_write(self.spi0, [CMD_SELFCAL])
+        self.pi.spi_write(self.spi_id, [CMD_SELFCAL])
         self.wait_DRDY()
         # Release chip select and implement t_11 timeout
         self._chip_release()
@@ -469,7 +470,7 @@ class ADS1256(object):
         The input multiplexer must be set to the appropriate pins first.
         """
         self._chip_select()
-        self.pi.spi_write(self.spi0, [CMD_SYSOCAL])
+        self.pi.spi_write(self.spi_id, [CMD_SYSOCAL])
         self.wait_DRDY()
         # Release chip select and implement t_11 timeout
         self._chip_release()
@@ -481,7 +482,7 @@ class ADS1256(object):
         The input multiplexer must be set to the appropriate pins first.
         """
         self._chip_select()
-        self.pi.spi_write(self.spi0, [CMD_SYSGCAL])
+        self.pi.spi_write(self.spi_id, [CMD_SYSGCAL])
         self.wait_DRDY()
         # Release chip select and implement t_11 timeout
         self._chip_release()
@@ -491,7 +492,7 @@ class ADS1256(object):
         """Put chip in low-power standby mode
         """
         self._chip_select()
-        self.pi.spi_write(self.spi0, [CMD_STANDBY])
+        self.pi.spi_write(self.spi_id, [CMD_STANDBY])
         # Release chip select and implement t_11 timeout
         self._chip_release()
 
@@ -507,7 +508,7 @@ class ADS1256(object):
         Call standby() to enter standby mode again.
         """
         self._chip_select()
-        self.pi.spi_write(self.spi0, [CMD_WAKEUP])
+        self.pi.spi_write(self.spi_id, [CMD_WAKEUP])
         # Release chip select and implement t_11 timeout
         self._chip_release()
 
@@ -517,7 +518,7 @@ class ADS1256(object):
         to reset values and Polls for DRDY change / timeout afterwards.
         """
         self._chip_select()
-        self.pi.spi_write(self.spi0, [CMD_RESET])
+        self.pi.spi_write(self.spi_id, [CMD_RESET])
         self.wait_DRDY()
         # Release chip select and implement t_11 timeout
         self._chip_release()
@@ -533,9 +534,9 @@ class ADS1256(object):
         flags.
         """
         self._chip_select()
-        self.pi.spi_write(self.spi0, [CMD_SYNC])
+        self.pi.spi_write(self.spi_id, [CMD_SYNC])
         wp.delayMicroseconds(self._SYNC_TIMEOUT_US)
-        self.pi.spi_write(self.spi0, [CMD_WAKEUP])
+        self.pi.spi_write(self.spi_id, [CMD_WAKEUP])
         # Release chip select and implement t_11 timeout
         self._chip_release()
 
@@ -565,11 +566,11 @@ class ADS1256(object):
         # Wait for data to be ready
         self.wait_DRDY()
         # Send the read command
-        self.pi.spi_write(self.spi0, [CMD_RDATA])
+        self.pi.spi_write(self.spi_id, [CMD_RDATA])
         # Wait through the data pause
         wp.delayMicroseconds(self._DATA_TIMEOUT_US)
         # The result is 24 bits little endian two's complement value by default
-        (count, inbytes) = self.pi.spi_read(self.spi0, 3)
+        (count, inbytes) = self.pi.spi_read(self.spi_id, 3)
         # Release chip select and implement t_11 timeout
         self._chip_release()
 
