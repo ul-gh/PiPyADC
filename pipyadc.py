@@ -266,8 +266,11 @@ class ADS1256(object):
     # can be changed during runtime via class properties.
     # Default config is read from external file (module) import
     def __init__(self, conf=ADS1256_default_config):
-        # Set up the wiringpi object to use physical pin numbers
-        wp.wiringPiSetupPhys()
+        # Set up the pigpio object
+        pi = io.pi()
+        self.pi = pi
+        if not pi.connected:
+            raise IOError("Could not connect to hardware via pigpio library")
         # Config and initialize the SPI and GPIO pins used by the ADC.
         # The following four entries are actively used by the code:
         self.SPI_CHANNEL  = conf.SPI_CHANNEL
@@ -279,24 +282,20 @@ class ADS1256(object):
         # Only one GPIO input:
         if conf.DRDY_PIN is not None:
             self.DRDY_PIN = conf.DRDY_PIN
-            wp.pinMode(conf.DRDY_PIN,  wp.INPUT)
+            pi.set_mode(conf.DRDY_PIN, io.INPUT)
 
         # GPIO Outputs. Only the CS_PIN is currently actively used. ~RESET and 
         # ~PDWN must be set to static logic HIGH level if not hardwired:
-        for pin in (conf.CS_PIN,
-                    conf.RESET_PIN,
-                    conf.PDWN_PIN):
+        for pin in (conf.CS_PIN, conf.RESET_PIN, conf.PDWN_PIN):
             if pin is not None:
-                wp.pinMode(pin, wp.OUTPUT)
-                wp.digitalWrite(pin, wp.HIGH)
+                pi.set_mode(pin, io.OUTPUT)
+                pi.write(pin, 1)
         
-        # Initialize the wiringpi SPI setup. Return value is the Linux file
-        # descriptor for the SPI bus device:
-        fd = wp.wiringPiSPISetupMode(
-                conf.SPI_CHANNEL, conf.SPI_FREQUENCY, conf.SPI_MODE)
-        if fd == -1:
-            raise IOError("ERROR: Could not access SPI device file")
-            return False
+        # Initialize the pigpio SPI setup. Return value is a handle for the
+        # SPI device.
+        self.spi0 = pi.spi_open(
+            conf.SPI_CHANNEL, conf.SPI_FREQUENCY, conf.SPI_FLAGS
+        )
         
         # ADS1255/ADS1256 command timing specifications. Do not change.
         # Delay between requesting data and reading the bus for
@@ -345,30 +344,25 @@ class ADS1256(object):
         # If chip select hardware pin is connected to SPI bus hardware pin or
         # hardwired to GND, do nothing.
         if self.CS_PIN is not None:
-            wp.digitalWrite(self.CS_PIN, wp.LOW)
+            self.pi.write(self.CS_PIN, 0)
 
     # Release chip select and implement t_11 timeout
     def _chip_release(self):
         if self.CS_PIN is not None:
             wp.delayMicroseconds(self._CS_TIMEOUT_US)
-            wp.digitalWrite(self.CS_PIN, wp.HIGH)
+            self.pi.write(self.CS_PIN, 1)
         else:
             # The minimum t_11 timeout between commands, see datasheet Figure 1.
             wp.delayMicroseconds(self._T_11_TIMEOUT_US)
 
     def _send_byte(self, mybyte):
         # Sends a byte via the SPI bus
-        # Workaround for single-byte transfers due to mutation of immutable
-        # function argument. Thanks @JKR
-        # wiringPiSPIDataRW() returns a Linux ioctl() error code.
-        # We ignore that since we already checked for presence of the file
-        # descriptor of the SPI device during initialisation.
-        wp.wiringPiSPIDataRW(self.SPI_CHANNEL, "%s" % chr(mybyte&0xFF))
+        self.pi.spi_write(self.spi0, chr(mybyte&0xFF))
 
     def _read_byte(self):
         # Returns a byte read via the SPI bus
-        MISObyte = wp.wiringPiSPIDataRW(self.SPI_CHANNEL, chr(0xFF))
-        return ord(MISObyte[1])
+        ret_tuple = self.pi.spi_read(self.spi0, 1)
+        return ord(ret_tuple[1])
 
 
     def wait_DRDY(self):
@@ -391,10 +385,10 @@ class ADS1256(object):
         elapsed = time.time() - start
         # Waits for DRDY pin to go to active low or DRDY_TIMEOUT seconds to pass
         if self.DRDY_PIN is not None:
-            drdy_level = wp.digitalRead(self.DRDY_PIN)
-            while (drdy_level == wp.HIGH) and (elapsed < self.DRDY_TIMEOUT):
+            drdy_level = self.pi.read(self.DRDY_PIN)
+            while (drdy_level == 1) and (elapsed < self.DRDY_TIMEOUT):
                 elapsed = time.time() - start
-                drdy_level = wp.digitalRead(self.DRDY_PIN)
+                drdy_level = self.pi.read(self.DRDY_PIN)
                 # Delay in order to avoid busy wait and reduce CPU load.
                 time.sleep(self.DRDY_DELAY)
             if elapsed >= self.DRDY_TIMEOUT:
@@ -411,13 +405,12 @@ class ADS1256(object):
         Argument: register address
         """
         self._chip_select()
-        self._send_byte(CMD_RREG | register)
-        self._send_byte(0x00)
+        self.pi.spi_write(self.spi0, [CMD_RREG|register, 0x00])
         wp.delayMicroseconds(self._DATA_TIMEOUT_US)
-        read = self._read_byte()
+        ret_tuple = self.pi.spi_read(self.spi0, 1)
         # Release chip select and implement t_11 timeout
         self._chip_release()
-        return read
+        return ord(ret_tuple[1])
 
 
     def write_reg(self, register, data):
@@ -426,11 +419,7 @@ class ADS1256(object):
         Arguments: register address, data byte (uint_8)
         """
         self._chip_select()
-        # Tell the ADS chip which register to start writing at
-        self._send_byte(CMD_WREG | register)
-        # Tell the ADS chip how many additional registers to write
-        self._send_byte(0x00)
-        self._send_byte(data)
+        self.pi.spi_write(self.spi0, [CMD_WREG|register, 0x00, data])
         # Release chip select and implement t_11 timeout
         self._chip_release()
 
@@ -442,7 +431,7 @@ class ADS1256(object):
         Sets the ADS1255/ADS1256 OFC register.
         """
         self._chip_select()
-        self._send_byte(CMD_SELFOCAL)
+        self.pi.spi_write(self.spi0, [CMD_SELFOCAL])
         self.wait_DRDY()
         # Release chip select and implement t_11 timeout
         self._chip_release()
@@ -455,7 +444,7 @@ class ADS1256(object):
         Sets the ADS1255/ADS1256 FSC register.
         """
         self._chip_select()
-        self._send_byte(CMD_SELFGCAL)
+        self.pi.spi_write(self.spi0, [CMD_SELFGCAL])
         self.wait_DRDY()
         # Release chip select and implement t_11 timeout
         self._chip_release()
@@ -468,7 +457,7 @@ class ADS1256(object):
         Sets the ADS1255/ADS1256 OFC and FSC registers.
         """
         self._chip_select()
-        self._send_byte(CMD_SELFCAL)
+        self.pi.spi_write(self.spi0, [CMD_SELFCAL])
         self.wait_DRDY()
         # Release chip select and implement t_11 timeout
         self._chip_release()
@@ -480,7 +469,7 @@ class ADS1256(object):
         The input multiplexer must be set to the appropriate pins first.
         """
         self._chip_select()
-        self._send_byte(CMD_SYSOCAL)
+        self.pi.spi_write(self.spi0, [CMD_SYSOCAL])
         self.wait_DRDY()
         # Release chip select and implement t_11 timeout
         self._chip_release()
@@ -492,7 +481,7 @@ class ADS1256(object):
         The input multiplexer must be set to the appropriate pins first.
         """
         self._chip_select()
-        self._send_byte(CMD_SYSGCAL)
+        self.pi.spi_write(self.spi0, [CMD_SYSGCAL])
         self.wait_DRDY()
         # Release chip select and implement t_11 timeout
         self._chip_release()
@@ -502,7 +491,7 @@ class ADS1256(object):
         """Put chip in low-power standby mode
         """
         self._chip_select()
-        self._send_byte(CMD_STANDBY)
+        self.pi.spi_write(self.spi0, [CMD_STANDBY])
         # Release chip select and implement t_11 timeout
         self._chip_release()
 
@@ -518,7 +507,7 @@ class ADS1256(object):
         Call standby() to enter standby mode again.
         """
         self._chip_select()
-        self._send_byte(CMD_WAKEUP)
+        self.pi.spi_write(self.spi0, [CMD_WAKEUP])
         # Release chip select and implement t_11 timeout
         self._chip_release()
 
@@ -528,7 +517,7 @@ class ADS1256(object):
         to reset values and Polls for DRDY change / timeout afterwards.
         """
         self._chip_select()
-        self._send_byte(CMD_RESET)
+        self.pi.spi_write(self.spi0, [CMD_RESET])
         self.wait_DRDY()
         # Release chip select and implement t_11 timeout
         self._chip_release()
@@ -544,9 +533,9 @@ class ADS1256(object):
         flags.
         """
         self._chip_select()
-        self._send_byte(CMD_SYNC)
+        self.pi.spi_write(self.spi0, [CMD_SYNC])
         wp.delayMicroseconds(self._SYNC_TIMEOUT_US)
-        self._send_byte(CMD_WAKEUP)
+        self.pi.spi_write(self.spi0, [CMD_WAKEUP])
         # Release chip select and implement t_11 timeout
         self._chip_release()
 
@@ -576,24 +565,22 @@ class ADS1256(object):
         # Wait for data to be ready
         self.wait_DRDY()
         # Send the read command
-        self._send_byte(CMD_RDATA)
+        self.pi.spi_write(self.spi0, [CMD_RDATA])
         # Wait through the data pause
         wp.delayMicroseconds(self._DATA_TIMEOUT_US)
         # The result is 24 bits little endian two's complement value by default
-        byte_3 = self._read_byte()
-        byte_2 = self._read_byte()
-        byte_1 = self._read_byte()
+        (count, inbytes) = self.pi.spi_read(self.spi0, 3)
         # Release chip select and implement t_11 timeout
         self._chip_release()
 
         # Concatenate the bytes
-        int24_result = byte_3<<16 | byte_2<<8 | byte_1
+        int24_result = inbytes[0]<<16 | inbytes[1]<<8 | inbytes[0]
         # Take care of 24-bit two's complement
         if int24_result < 0x800000:
             return int24_result
         else:
             return int24_result - 0x1000000
-
+#FIXME
 
     def read_oneshot(self, diff_channel):
         """Restart/re-sync ADC and read the specified input pin pair.
