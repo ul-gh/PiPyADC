@@ -137,11 +137,14 @@ class ADS1256(object):
 
         The resulting delay can be avoided. See functions:
 
-        read_and_next_is(diff_channel)
-            for cyclic single-channel reads and:
-        
+        read_continue()
+            for cyclic reads of multiple channels at once - the ADC must not be
+            reconfigured between invocations of this function, otherwise false
+            data is read for the first value of the sequence
+
         read_sequence()
-            for cyclic reads of multiple channels at once.
+            for reading a succession of multiple channels at once, configuring
+            all input channels including the first one for each cycle
         """
         return self.read_reg(REG_MUX)
     @mux.setter
@@ -574,13 +577,13 @@ class ADS1256(object):
         self._chip_release()
 
         # Concatenate the bytes
-        int24_result = inbytes[0]<<16 | inbytes[1]<<8 | inbytes[0]
+        int24_result = inbytes[0]<<16 | inbytes[1]<<8 | inbytes[2]
         # Take care of 24-bit two's complement
         if int24_result < 0x800000:
             return int24_result
         else:
             return int24_result - 0x1000000
-#FIXME
+
 
     def read_oneshot(self, diff_channel):
         """Restart/re-sync ADC and read the specified input pin pair.
@@ -599,39 +602,36 @@ class ADS1256(object):
 
         The resulting delay can be avoided. See functions:
 
-        read_and_next_is(diff_channel)
-            for cyclic single-channel reads and:
-        
-        read_sequence()
-            for cyclic reads of multiple channels at once.
+        read_continue()
+            for cyclic reads of multiple channels at once - the ADC must not be
+            reconfigured between invocations of this function, otherwise false
+            data is read for the first value of the sequence
 
+        read_sequence()
+            for reading a succession of multiple channels at once, configuring
+            all input channels including the first one for each cycle
         """
         self._chip_select()
         # Set input pin mux position for this cycle"
-        self._send_byte(CMD_WREG | REG_MUX)
-        self._send_byte(0x00)
-        self._send_byte(diff_channel)
-        # Restart/start the conversion cycle with set input pins
-        self._send_byte(CMD_SYNC)
+        self.pi.spi_write(
+            self.spi0, [CMD_WREG|REG_MUX, 0x00, diff_channel, CMD_SYNC])
         wp.delayMicroseconds(self._SYNC_TIMEOUT_US)
-        self._send_byte(CMD_WAKEUP)
+        self.pi.spi_write(self.spi0, [CMD_WAKEUP])
 
         self.wait_DRDY()
         # Read data from ADC, which still returns the /previous/ conversion
         # result from before changing inputs
-        self._send_byte(CMD_RDATA)
+        self.pi.spi_write(self.spi0, [CMD_RDATA])
         wp.delayMicroseconds(self._DATA_TIMEOUT_US)
 
         # The result is 24 bits little endian two's complement value by default
-        byte_3 = self._read_byte()
-        byte_2 = self._read_byte()
-        byte_1 = self._read_byte()
+        (count, inbytes) = self.pi.spi_read(self.spi0, 3)
 
         # Release chip select and implement t_11 timeout
         self._chip_release()
 
         # Concatenate the bytes
-        int24_result = byte_3<<16 | byte_2<<8 | byte_1
+        int24_result = inbytes[0]<<16 | inbytes[1]<<8 | inbytes[2]
         # Take care of 24-bit two's complement
         if int24_result < 0x800000:
             return int24_result
@@ -663,32 +663,26 @@ class ADS1256(object):
         self.wait_DRDY()
 
         # Setting mux position for next cycle"
-        self._send_byte(CMD_WREG | REG_MUX)
-        self._send_byte(0x00)
-        self._send_byte(diff_channel)
-        # Restart/start next conversion cycle with new input config
-        self._send_byte(CMD_SYNC)
+        self.pi.spi_write(
+            self.spi0, [CMD_WREG|REG_MUX, 0x00, diff_channel, CMD_SYNC])
         wp.delayMicroseconds(self._SYNC_TIMEOUT_US)
-        self._send_byte(CMD_WAKEUP)
+        self.pi.spi_write(self.spi0, [CMD_WAKEUP])
         # The datasheet is a bit unclear if a t_11 timeout is needed here.
         # Assuming the extra timeout is the safe choice:
         wp.delayMicroseconds(self._T_11_TIMEOUT_US)
 
         # Read data from ADC, which still returns the /previous/ conversion
         # result from before changing inputs
-        self._send_byte(CMD_RDATA)
+        self.pi.spi_write(self.spi0, [CMD_RDATA])
         wp.delayMicroseconds(self._DATA_TIMEOUT_US)
 
         # The result is 24 bits little endian two's complement value by default
-        byte_3 = self._read_byte()
-        byte_2 = self._read_byte()
-        byte_1 = self._read_byte()
 
         # Release chip select and implement t_11 timeout
         self._chip_release()
 
         # Concatenate the bytes
-        int24_result = byte_3<<16 | byte_2<<8 | byte_1
+        int24_result = inbytes[0]<<16 | inbytes[1]<<8 | inbytes[2]
         # Take care of 24-bit two's complement
         if int24_result < 0x800000:
             return int24_result
