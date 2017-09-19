@@ -624,7 +624,6 @@ class ADS1256(object):
         # result from before changing inputs
         self.pi.spi_write(self.spi_id, [CMD_RDATA])
         wp.delayMicroseconds(self._DATA_TIMEOUT_US)
-
         # The result is 24 bits little endian two's complement value by default
         (count, inbytes) = self.pi.spi_read(self.spi_id, 3)
 
@@ -676,8 +675,8 @@ class ADS1256(object):
         # result from before changing inputs
         self.pi.spi_write(self.spi_id, [CMD_RDATA])
         wp.delayMicroseconds(self._DATA_TIMEOUT_US)
-
         # The result is 24 bits little endian two's complement value by default
+        (count, inbytes) = self.pi.spi_read(self.spi_id, 3)
 
         # Release chip select and implement t_11 timeout
         self._chip_release()
