@@ -615,18 +615,18 @@ class ADS1256(object):
         self._chip_select()
         # Set input pin mux position for this cycle"
         self.pi.spi_write(
-            self.spi0, [CMD_WREG|REG_MUX, 0x00, diff_channel, CMD_SYNC])
+            self.spi_id, [CMD_WREG|REG_MUX, 0x00, diff_channel, CMD_SYNC])
         wp.delayMicroseconds(self._SYNC_TIMEOUT_US)
-        self.pi.spi_write(self.spi0, [CMD_WAKEUP])
+        self.pi.spi_write(self.spi_id, [CMD_WAKEUP])
 
         self.wait_DRDY()
         # Read data from ADC, which still returns the /previous/ conversion
         # result from before changing inputs
-        self.pi.spi_write(self.spi0, [CMD_RDATA])
+        self.pi.spi_write(self.spi_id, [CMD_RDATA])
         wp.delayMicroseconds(self._DATA_TIMEOUT_US)
 
         # The result is 24 bits little endian two's complement value by default
-        (count, inbytes) = self.pi.spi_read(self.spi0, 3)
+        (count, inbytes) = self.pi.spi_read(self.spi_id, 3)
 
         # Release chip select and implement t_11 timeout
         self._chip_release()
@@ -665,16 +665,16 @@ class ADS1256(object):
 
         # Setting mux position for next cycle"
         self.pi.spi_write(
-            self.spi0, [CMD_WREG|REG_MUX, 0x00, diff_channel, CMD_SYNC])
+            self.spi_id, [CMD_WREG|REG_MUX, 0x00, diff_channel, CMD_SYNC])
         wp.delayMicroseconds(self._SYNC_TIMEOUT_US)
-        self.pi.spi_write(self.spi0, [CMD_WAKEUP])
+        self.pi.spi_write(self.spi_id, [CMD_WAKEUP])
         # The datasheet is a bit unclear if a t_11 timeout is needed here.
         # Assuming the extra timeout is the safe choice:
         wp.delayMicroseconds(self._T_11_TIMEOUT_US)
 
         # Read data from ADC, which still returns the /previous/ conversion
         # result from before changing inputs
-        self.pi.spi_write(self.spi0, [CMD_RDATA])
+        self.pi.spi_write(self.spi_id, [CMD_RDATA])
         wp.delayMicroseconds(self._DATA_TIMEOUT_US)
 
         # The result is 24 bits little endian two's complement value by default
