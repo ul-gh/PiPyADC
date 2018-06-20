@@ -353,11 +353,11 @@ class ADS1256(object):
     # Release chip select and implement t_11 timeout
     def _chip_release(self):
         if self.CS_PIN is not None:
-            wp.delayMicroseconds(self._CS_TIMEOUT_US)
+            wp.delayMicroseconds(int(self._CS_TIMEOUT_US))
             self.pi.write(self.CS_PIN, 1)
         else:
             # The minimum t_11 timeout between commands, see datasheet Figure 1.
-            wp.delayMicroseconds(self._T_11_TIMEOUT_US)
+            wp.delayMicroseconds(int(self._T_11_TIMEOUT_US))
 
     def _send_byte(self, mybyte):
         # Sends a byte via the SPI bus
@@ -410,7 +410,7 @@ class ADS1256(object):
         """
         self._chip_select()
         self.pi.spi_write(self.spi_id, [CMD_RREG|register, 0x00])
-        wp.delayMicroseconds(self._DATA_TIMEOUT_US)
+        wp.delayMicroseconds(int(self._DATA_TIMEOUT_US))
         ret_tuple = self.pi.spi_read(self.spi_id, 1)
         # Release chip select and implement t_11 timeout
         self._chip_release()
@@ -538,7 +538,7 @@ class ADS1256(object):
         """
         self._chip_select()
         self.pi.spi_write(self.spi_id, [CMD_SYNC])
-        wp.delayMicroseconds(self._SYNC_TIMEOUT_US)
+        wp.delayMicroseconds(int(self._SYNC_TIMEOUT_US))
         self.pi.spi_write(self.spi_id, [CMD_WAKEUP])
         # Release chip select and implement t_11 timeout
         self._chip_release()
@@ -571,7 +571,7 @@ class ADS1256(object):
         # Send the read command
         self.pi.spi_write(self.spi_id, [CMD_RDATA])
         # Wait through the data pause
-        wp.delayMicroseconds(self._DATA_TIMEOUT_US)
+        wp.delayMicroseconds(int(self._DATA_TIMEOUT_US))
         # The result is 24 bits little endian two's complement value by default
         (count, inbytes) = self.pi.spi_read(self.spi_id, 3)
         # Release chip select and implement t_11 timeout
@@ -616,14 +616,14 @@ class ADS1256(object):
         # Set input pin mux position for this cycle"
         self.pi.spi_write(
             self.spi_id, [CMD_WREG|REG_MUX, 0x00, diff_channel, CMD_SYNC])
-        wp.delayMicroseconds(self._SYNC_TIMEOUT_US)
+        wp.delayMicroseconds(int(self._SYNC_TIMEOUT_US))
         self.pi.spi_write(self.spi_id, [CMD_WAKEUP])
 
         self.wait_DRDY()
         # Read data from ADC, which still returns the /previous/ conversion
         # result from before changing inputs
         self.pi.spi_write(self.spi_id, [CMD_RDATA])
-        wp.delayMicroseconds(self._DATA_TIMEOUT_US)
+        wp.delayMicroseconds(int(self._DATA_TIMEOUT_US))
         # The result is 24 bits little endian two's complement value by default
         (count, inbytes) = self.pi.spi_read(self.spi_id, 3)
 
@@ -665,16 +665,16 @@ class ADS1256(object):
         # Setting mux position for next cycle"
         self.pi.spi_write(
             self.spi_id, [CMD_WREG|REG_MUX, 0x00, diff_channel, CMD_SYNC])
-        wp.delayMicroseconds(self._SYNC_TIMEOUT_US)
+        wp.delayMicroseconds(int(self._SYNC_TIMEOUT_US))
         self.pi.spi_write(self.spi_id, [CMD_WAKEUP])
         # The datasheet is a bit unclear if a t_11 timeout is needed here.
         # Assuming the extra timeout is the safe choice:
-        wp.delayMicroseconds(self._T_11_TIMEOUT_US)
+        wp.delayMicroseconds(int(self._T_11_TIMEOUT_US))
 
         # Read data from ADC, which still returns the /previous/ conversion
         # result from before changing inputs
         self.pi.spi_write(self.spi_id, [CMD_RDATA])
-        wp.delayMicroseconds(self._DATA_TIMEOUT_US)
+        wp.delayMicroseconds(int(self._DATA_TIMEOUT_US))
         # The result is 24 bits little endian two's complement value by default
         (count, inbytes) = self.pi.spi_read(self.spi_id, 3)
 
