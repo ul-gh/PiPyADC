@@ -304,21 +304,21 @@ class ADS1256(object):
         # ADS1255/ADS1256 command timing specifications. Do not change.
         # Delay between requesting data and reading the bus for
         # RDATA, RDATAC and RREG commands (datasheet: t_6 >= 50*CLKIN period).
-        self._DATA_TIMEOUT_US = 1 + (50*1000000)/conf.CLKIN_FREQUENCY
+        self._DATA_TIMEOUT_US = int(1 + (50*1000000)/conf.CLKIN_FREQUENCY)
         # Command-to-command timeout after SYNC and RDATAC
         # commands (datasheet: t11)
-        self._SYNC_TIMEOUT_US = 1 + (24*1000000)/conf.CLKIN_FREQUENCY
+        self._SYNC_TIMEOUT_US = int(1 + (24*1000000)/conf.CLKIN_FREQUENCY)
         # See datasheet ADS1256: CS needs to remain low
         # for t_10 = 8*T_CLKIN after last SCLK falling edge of a command.
         # Because this delay is longer than timeout t_11 for the
         # RREG, WREG and RDATA commands of 4*T_CLKIN, we do not need
         # the extra t_11 timeout for these commands when using software
         # chip select selection and the _CS_TIMEOUT_US.
-        self._CS_TIMEOUT_US   = 1 + (8*1000000)/conf.CLKIN_FREQUENCY
+        self._CS_TIMEOUT_US   = int(1 + (8*1000000)/conf.CLKIN_FREQUENCY)
         # When using hardware/hard-wired chip select, still a command-
         # to command timeout of t_11 is needed as a minimum for the
         # RREG, WREG and RDATA commands.
-        self._T_11_TIMEOUT_US   = 1 + (4*1000000)/conf.CLKIN_FREQUENCY
+        self._T_11_TIMEOUT_US   = int(1 + (4*1000000)/conf.CLKIN_FREQUENCY)
 
        
         # Initialise class properties
