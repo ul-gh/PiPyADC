@@ -70,6 +70,8 @@ gain_flags = GAIN_1
 # When enabling the AUTOCAL flag: Any following operation that changes
 # PGA GAIN, DRATE or BUFFER flags triggers a self calibration:
 # THIS REQUIRES an additional timeout via WaitDRDY() after each such operation.
+# Note: BUFFER_ENABLE means the ADC input voltage range is limited
+# to (AVDD-2V),see datasheet
 status = BUFFER_ENABLE
 # REG_MUX:
 # Default: positive input = AIN0, negative input = AINCOM
