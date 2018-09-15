@@ -15,13 +15,8 @@ from ADS1256_definitions import *
 # code does not use hardware-controlled CS and this is a don't care value.
 # FIXME: Implement hardware chip select as an option.
 SPI_CHANNEL   = 1
-# SPI_FLAGS sets MODE=1 <=> CPOL=0, CPHA=1. See pigpio documentation.
-# The waveshare ADC board does not use the SPI peripheral hardware for the chip
-# select lines, but uses the CS_PIN GPIO defined further below. CS disabled:
-#                  bbbbbbRTnnnnWAuuupppmm
-SPI_FLAGS      = 0b0000000000000011100001
-# When using the SPI hardware chip select lines, use the following flags:
-# SPI_FLAGS      = 0b0000000000000000000001
+# SPI_MODE specifies clock polarity and phase; MODE=1 <=> CPOL=0, CPHA=1
+SPI_MODE      = 1
 # SPI clock rate in Hz. The ADS1256 supports a minimum of 1/10th of the output
 # sample data rate in Hz to 1/4th of the oscillator CLKIN_FREQUENCY which
 # results in a value of 1920000 Hz for the Waveshare board. However, since
@@ -38,14 +33,10 @@ SPI_FREQUENCY = 976563
 # Obviously, when not using hardware polling of the DRDY signal, acquisition
 # will be much slower with long delays. See datasheet..
 #CS_PIN      = None
-#CS_PIN      = 15
-#DRDY_PIN    = 11
-#RESET_PIN   = 12
-#PDWN_PIN    = 13
-DRDY_PIN    = 17
-RESET_PIN   = 18
-PDWN_PIN    = 27
-CS_PIN      = 22
+CS_PIN      = 15 
+DRDY_PIN    = 11
+RESET_PIN   = 12
+PDWN_PIN    = 13
 ###############################################################################
 
 ##################  ADS1256 Constant Configuration Settings  ###################
@@ -79,6 +70,8 @@ gain_flags = GAIN_1
 # When enabling the AUTOCAL flag: Any following operation that changes
 # PGA GAIN, DRATE or BUFFER flags triggers a self calibration:
 # THIS REQUIRES an additional timeout via WaitDRDY() after each such operation.
+# Note: BUFFER_ENABLE means the ADC input voltage range is limited
+# to (AVDD-2V),see datasheet
 status = BUFFER_ENABLE
 # REG_MUX:
 # Default: positive input = AIN0, negative input = AINCOM
