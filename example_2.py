@@ -93,7 +93,9 @@ def do_measurement():
     # Omitting the first chip here, as this is only an example.
 
     #ads1 = ADS1256(myconfig_1)
-    ads2 = ADS1256(myconfig_2)
+    # (Note1: See ADS1256_default_config.py, see ADS1256 datasheet)
+    # (Note2: Input buffer on means limited voltage range 0V...3V for 5V supply)
+   ads2 = ADS1256(myconfig_2)
     
     # Just as an example: Change the default sample rate of the ADS1256:
     # This shows how to acces ADS1256 registers via instance property
