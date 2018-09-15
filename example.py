@@ -57,7 +57,9 @@ CH_SEQUENCE = (POTI, LDR, EXT2, EXT3, EXT4, EXT7, POTI_INVERTED, SHORT_CIRCUIT)
 
 
 def do_measurement():
-    ### STEP 1: Initialise ADC object:
+    ### STEP 1: Initialise ADC object using default configuration:
+    # (Note1: See ADS1256_default_config.py, see ADS1256 datasheet)
+    # (Note2: Input buffer on means limited voltage range 0V...3V for 5V supply)
     ads = ADS1256()
 
     ### STEP 2: Gain and offset self-calibration:
