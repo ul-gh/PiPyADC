@@ -20,11 +20,17 @@ Uses code from: https://github.com/heathsd/PyADS1256
 License: GNU LGPLv2.1, see:
 https://www.gnu.org/licenses/old-licenses/lgpl-2.1-standalone.html
 
-Ulrich Lukas, 2017-03-08
+Ulrich Lukas, 2018-12-31
 
-## Run example on Raspbian Jessie:
-    sudo pip install wiringpi
-    sudo python example.py
+## Run example on Raspbian Stretch:
+### Install wiringpi library:
+	sudo apt install python-pip
+	sudo pip install wiringpi
+### Activate SPI bus and reboot system:
+	sudo sed -E -i s/"(#)(dtparam=spi).*"/"\2=on"/ /boot/config.txt
+	reboot
+### Run example:
+	sudo python example.py
 
 ## Example 2 added:
 + Importing configuration files for configuration of more than one ADC

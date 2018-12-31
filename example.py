@@ -9,8 +9,12 @@ Hardware: Waveshare ADS1256 board interfaced to the Raspberry Pi 3
 Ulrich Lukas 2017-03-10
 """
 import sys
+import os
 from ADS1256_definitions import *
 from pipyadc import ADS1256
+
+if not os.path.exists("/dev/spidev0.1"):
+    raise IOError("Error: No SPI device. Check settings in /boot/config.txt")
 
 ### START EXAMPLE ###
 ################################################################################
