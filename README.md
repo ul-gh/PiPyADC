@@ -25,8 +25,8 @@ Ulrich Lukas, 2018-12-31
 ## Run example on Raspbian Stretch:
 ### Compatibility issue with Python 3:
 The master branch is currently only compatible with Python 2.7, see example below.  
-If you need Python 3, please consider the pigpio branch or have a look at: bsvh@b5832323338e046d6c24f1fd6aadde87e84786a8  
-See also WiringPi/WiringPi-Python#25
+If you need Python 3, please consider the pigpio branch or have a look at: [commit b583232 by bsvh](bsvh@b5832323338e046d6c24f1fd6aadde87e84786a8)  
+See also [WiringPi-Python#25](WiringPi/WiringPi-Python#25)
 
 ### Install wiringpi library:
 	sudo apt install python-pip
