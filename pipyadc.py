@@ -357,7 +357,7 @@ class ADS1256(object):
     def _send_uint8(self, *vals):
         # Reads integers in range (0, 255), sends as uint-8 via the SPI bus
         wp.wiringPiSPIDataRW(self.SPI_CHANNEL,
-                             struct.pack("{}B.format(len(vals))", *vals))
+                             struct.pack("{}B".format(len(vals)), *vals))
         # Python3 only:
         # wp.wiringPiSPIDataRW(self.SPI_CHANNEL, bytes(vals))
 
@@ -377,7 +377,7 @@ class ADS1256(object):
         # return int.from_bytes(data, "big", signed=True)
 
     def _send_int24(self, val):
-        wp.wiringPiSPIDataRW(self.SPI_CHANNEL, struct.pack(">i", val)[1:4]
+        wp.wiringPiSPIDataRW(self.SPI_CHANNEL, struct.pack(">i", val))[1:4]
         # Python3 only:
         # wp.wiringPiSPIDataRW(self.SPI_CHANNEL, int.to_bytes(val, 3, "big")
 
