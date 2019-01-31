@@ -28,7 +28,7 @@ Ulrich Lukas, 2019-01-25
 	sudo pip install wiringpi
 ### Activate SPI bus and reboot system:
 	sudo sed -E -i s/"(#)(dtparam=spi).*"/"\2=on"/ /boot/config.txt
-	reboot
+	sudo reboot
 ### Run example:
 	sudo python example.py
 

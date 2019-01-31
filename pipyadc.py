@@ -296,7 +296,6 @@ class ADS1256(object):
                 conf.SPI_CHANNEL, conf.SPI_FREQUENCY, conf.SPI_MODE)
         if fd == -1:
             raise IOError("ERROR: Could not access SPI device file")
-            return False
         
         # ADS1255/ADS1256 command timing specifications. Do not change.
         # Delay between requesting data and reading the bus for
@@ -317,7 +316,6 @@ class ADS1256(object):
         # RREG, WREG and RDATA commands.
         self._T_11_TIMEOUT_US   = int(1 + (4*1000000)/conf.CLKIN_FREQUENCY)
 
-       
         # Initialise class properties
         self.v_ref         = conf.v_ref
 
@@ -356,14 +354,33 @@ class ADS1256(object):
             # The minimum t_11 timeout between commands, see datasheet Figure 1.
             wp.delayMicroseconds(self._T_11_TIMEOUT_US)
 
-    def _send_uint8(self, val):
-        # Reads an integer, sends its modulo-256 value via the SPI bus as uint-8
-        wp.wiringPiSPIDataRW(self.SPI_CHANNEL, struct.pack("B", val&0xFF))
+    def _send_uint8(self, *vals):
+        # Reads integers in range (0, 255), sends as uint-8 via the SPI bus
+        wp.wiringPiSPIDataRW(self.SPI_CHANNEL,
+                             struct.pack("{}B.format(len(vals))", *vals))
+        # Python3 only:
+        # wp.wiringPiSPIDataRW(self.SPI_CHANNEL, bytes(vals))
 
-    def _read_uint8(self):
-        # Returns unsigned int interpretation of one byte read via the SPI bus
-        byte = wp.wiringPiSPIDataRW(self.SPI_CHANNEL, b"\xFF")[1]
-        return ord(byte)
+    def _read_uint8(self, n_vals=1):
+        # Returns tuple containing unsigned 8-bit int interpretation of
+        # n_vals bytes read via the SPI bus
+        n_bytes, data = wp.wiringPiSPIDataRW(self.SPI_CHANNEL, b"\xFF"*n_vals)
+        return struct.unpack("{}B".format(n_bytes), data)
+        # Python3 only:
+        # return tuple(data)
+
+    def _read_int24(self):
+        # Returns signed int interpretation of three bytes read via the SPI bus
+        data = wp.wiringPiSPIDataRW(self.SPI_CHANNEL, b"\xFF\xFF\xFF")[1]
+        return struct.unpack(">i", data + b"\x00")[0] >> 8
+        # Python3 only:
+        # return int.from_bytes(data, "big", signed=True)
+
+    def _send_int24(self, val):
+        wp.wiringPiSPIDataRW(self.SPI_CHANNEL, struct.pack(">i", val)[1:4]
+        # Python3 only:
+        # wp.wiringPiSPIDataRW(self.SPI_CHANNEL, int.to_bytes(val, 3, "big")
+
 
 
     def wait_DRDY(self):
@@ -574,7 +591,7 @@ class ADS1256(object):
         self._send_uint8(CMD_RDATA)
         # Wait through the data pause
         wp.delayMicroseconds(self._DATA_TIMEOUT_US)
-        # The result is 24 bits little endian two's complement value by default
+        # The result is 24 bits big endian two's complement value by default
         byte_3 = self._read_uint8()
         byte_2 = self._read_uint8()
         byte_1 = self._read_uint8()
