@@ -371,7 +371,7 @@ class ADS1256(object):
 
     def _read_int24(self):
         # Returns signed int interpretation of three bytes read via the SPI bus
-        data = wp.wiringPiSPIDataRW(self.SPI_CHANNEL, b"\xFF\xFF\xFF")[1]
+        _, data = wp.wiringPiSPIDataRW(self.SPI_CHANNEL, b"\xFF\xFF\xFF")
         return struct.unpack(">i", data + b"\x00")[0] >> 8
         # Python3 only:
         # return int.from_bytes(data, "big", signed=True)
@@ -423,10 +423,9 @@ class ADS1256(object):
         Argument: register address
         """
         self._chip_select()
-        self._send_uint8(CMD_RREG | register)
-        self._send_uint8(0x00)
+        self._send_uint8(CMD_RREG | register, 0x00)
         wp.delayMicroseconds(self._DATA_TIMEOUT_US)
-        read = self._read_uint8()
+        read, = self._read_uint8()
         # Release chip select and implement t_11 timeout
         self._chip_release()
         return read
@@ -438,11 +437,9 @@ class ADS1256(object):
         Arguments: register address, data byte (uint_8)
         """
         self._chip_select()
-        # Tell the ADS chip which register to start writing at
-        self._send_uint8(CMD_WREG | register)
-        # Tell the ADS chip how many additional registers to write
-        self._send_uint8(0x00)
-        self._send_uint8(data)
+        # Tell the ADS chip which register to start writing at,
+        # how many additional registers to write (0x00) and send data
+        self._send_uint8(CMD_WREG | register, 0x00, data)
         # Release chip select and implement t_11 timeout
         self._chip_release()
 
@@ -592,19 +589,10 @@ class ADS1256(object):
         # Wait through the data pause
         wp.delayMicroseconds(self._DATA_TIMEOUT_US)
         # The result is 24 bits big endian two's complement value by default
-        byte_3 = self._read_uint8()
-        byte_2 = self._read_uint8()
-        byte_1 = self._read_uint8()
+        int24_result = self._read_int24()
         # Release chip select and implement t_11 timeout
         self._chip_release()
-
-        # Concatenate the bytes
-        int24_result = byte_3<<16 | byte_2<<8 | byte_1
-        # Take care of 24-bit two's complement
-        if int24_result < 0x800000:
-            return int24_result
-        else:
-            return int24_result - 0x1000000
+        return int24_result
 
 
     def read_oneshot(self, diff_channel):
@@ -633,35 +621,21 @@ class ADS1256(object):
         """
         self._chip_select()
         # Set input pin mux position for this cycle"
-        self._send_uint8(CMD_WREG | REG_MUX)
-        self._send_uint8(0x00)
-        self._send_uint8(diff_channel)
+        self._send_uint8(CMD_WREG | REG_MUX, 0x00, diff_channel)
         # Restart/start the conversion cycle with set input pins
         self._send_uint8(CMD_SYNC)
         wp.delayMicroseconds(self._SYNC_TIMEOUT_US)
         self._send_uint8(CMD_WAKEUP)
-
         self.wait_DRDY()
         # Read data from ADC, which still returns the /previous/ conversion
         # result from before changing inputs
         self._send_uint8(CMD_RDATA)
         wp.delayMicroseconds(self._DATA_TIMEOUT_US)
-
         # The result is 24 bits little endian two's complement value by default
-        byte_3 = self._read_uint8()
-        byte_2 = self._read_uint8()
-        byte_1 = self._read_uint8()
-
+        int24_result = self._read_int24()
         # Release chip select and implement t_11 timeout
         self._chip_release()
-
-        # Concatenate the bytes
-        int24_result = byte_3<<16 | byte_2<<8 | byte_1
-        # Take care of 24-bit two's complement
-        if int24_result < 0x800000:
-            return int24_result
-        else:
-            return int24_result - 0x1000000
+        return int24_result
 
 
     def read_and_next_is(self, diff_channel):
@@ -688,9 +662,7 @@ class ADS1256(object):
         self.wait_DRDY()
 
         # Setting mux position for next cycle"
-        self._send_uint8(CMD_WREG | REG_MUX)
-        self._send_uint8(0x00)
-        self._send_uint8(diff_channel)
+        self._send_uint8(CMD_WREG | REG_MUX, 0x00, diff_channel)
         # Restart/start next conversion cycle with new input config
         self._send_uint8(CMD_SYNC)
         wp.delayMicroseconds(self._SYNC_TIMEOUT_US)
@@ -698,27 +670,15 @@ class ADS1256(object):
         # The datasheet is a bit unclear if a t_11 timeout is needed here.
         # Assuming the extra timeout is the safe choice:
         wp.delayMicroseconds(self._T_11_TIMEOUT_US)
-
         # Read data from ADC, which still returns the /previous/ conversion
         # result from before changing inputs
         self._send_uint8(CMD_RDATA)
         wp.delayMicroseconds(self._DATA_TIMEOUT_US)
-
         # The result is 24 bits little endian two's complement value by default
-        byte_3 = self._read_uint8()
-        byte_2 = self._read_uint8()
-        byte_1 = self._read_uint8()
-
+        int24_result = self._read_int24()
         # Release chip select and implement t_11 timeout
         self._chip_release()
-
-        # Concatenate the bytes
-        int24_result = byte_3<<16 | byte_2<<8 | byte_1
-        # Take care of 24-bit two's complement
-        if int24_result < 0x800000:
-            return int24_result
-        else:
-            return int24_result - 0x1000000
+        return int24_result
 
 
     def read_continue(self, ch_sequence, ch_buffer=None):
