@@ -216,7 +216,7 @@ class ADS1256(object):
             # Generate 24-Bit 2's complement.
             if value < 0:
                 value += 0x1000000
-            # self._send_uint8() automatically truncates to uint8
+            # self.write_reg() automatically truncates to uint8
             self.write_reg(REG_OFC0, value)
             value >>= 8
             self.write_reg(REG_OFC1, value)
@@ -239,7 +239,7 @@ class ADS1256(object):
         if value < 0 or value > 0xFFFFFF:
             raise ValueError("Error: This must be a positive int of 24-bit range")
         else:
-            # self._send_uint8() automatically truncates to uint8
+            # self.write_reg() automatically truncates to uint8
             self.write_reg(REG_FSC0, value)
             value >>= 8
             self.write_reg(REG_FSC1, value)
@@ -363,8 +363,9 @@ class ADS1256(object):
 
     def _read_uint8(self, n_vals=1):
         # Returns tuple containing unsigned 8-bit int interpretation of
-        # n_vals bytes read via the SPI bus
+        # n_vals bytes read via the SPI bus. n_bytes is supposed to 
         n_bytes, data = wp.wiringPiSPIDataRW(self.SPI_CHANNEL, b"\xFF"*n_vals)
+        assert n_bytes == n_vals
         return struct.unpack("{}B".format(n_bytes), data)
         # Python3 only:
         # return tuple(data)
@@ -379,7 +380,7 @@ class ADS1256(object):
     def _send_int24(self, val):
         wp.wiringPiSPIDataRW(self.SPI_CHANNEL, struct.pack(">i", val))[1:4]
         # Python3 only:
-        # wp.wiringPiSPIDataRW(self.SPI_CHANNEL, int.to_bytes(val, 3, "big")
+        # wp.wiringPiSPIDataRW(self.SPI_CHANNEL, int.to_bytes(val, 3, "big"))
 
 
 
@@ -439,7 +440,7 @@ class ADS1256(object):
         self._chip_select()
         # Tell the ADS chip which register to start writing at,
         # how many additional registers to write (0x00) and send data
-        self._send_uint8(CMD_WREG | register, 0x00, data)
+        self._send_uint8(CMD_WREG | register, 0x00, data&0xFF)
         # Release chip select and implement t_11 timeout
         self._chip_release()
 
