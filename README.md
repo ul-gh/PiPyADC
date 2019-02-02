@@ -4,6 +4,9 @@ to-digital converters with the Raspberry Pi.
 
 Currently only implemented class in this module is ADS1256 for the
 ADS1255 and ADS1256 chips which are register- and command compatible.
+The version implemented uses software/GPIO setting of the chip select signal
+instead of using the SPI hardware. This accounts for the hardware specifics
+of the "Waveshare High-Precision-AD-DA-Board".
 
 The ADS1255 and ADS1256 library is an implementation based purely on
 Python and the WiringPi API. On a Raspberry Pi 3, multi-channel ADC
@@ -20,7 +23,7 @@ Uses code from: https://github.com/heathsd/PyADS1256
 License: GNU LGPLv2.1, see:
 https://www.gnu.org/licenses/old-licenses/lgpl-2.1-standalone.html
 
-Ulrich Lukas, 2019-01-25
+Ulrich Lukas, 2019-02-02
 
 ## Run example on Raspbian Stretch:
 ### Install wiringpi library:
