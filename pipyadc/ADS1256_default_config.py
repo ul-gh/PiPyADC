@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from ADS1256_definitions import *
+from .ADS1256_definitions import *
 ################  Raspberry Pi Physical Interface Properties  #################
 # SPI bus configuration and GPIO pins used for the ADS1255/ADS1256.
 # These defaults are used by the constructor of the ADS1256 class.
@@ -10,7 +10,7 @@ from ADS1256_definitions import *
 # The following pins are compatible
 # with the Waveshare High Precision AD/DA board on the Raspberry Pi 2B and 3B
 #
-# SPI_CHANNEL corresponds to the chip select hardware bin controlled by the
+# SPI_CHANNEL corresponds to the chip select hardware pin controlled by the
 # SPI hardware. For the Waveshare board this pin is not even connected, so this
 # code does not use hardware-controlled CS and this is a don't care value.
 # FIXME: Implement hardware chip select as an option.
@@ -47,8 +47,7 @@ PDWN_PIN    = 13
 DRDY_TIMEOUT    = 2
 # Optional delay in seconds to avoid busy wait and reduce CPU load when
 # polling the DRDY pin. Default is 0.000001 or 1 µs (timing not accurate)
-#DRDY_DELAY      = 0.000001
-DRDY_DELAY      = 0.000000
+DRDY_DELAY      = 0.000001
 # Master clock rate in Hz. Default is 7680000:
 CLKIN_FREQUENCY = 7680000
 ################################################################################
@@ -71,6 +70,8 @@ gain_flags = GAIN_1
 # When enabling the AUTOCAL flag: Any following operation that changes
 # PGA GAIN, DRATE or BUFFER flags triggers a self calibration:
 # THIS REQUIRES an additional timeout via WaitDRDY() after each such operation.
+# Note: BUFFER_ENABLE means the ADC input voltage range is limited
+# to (AVDD-2V),see datasheet
 status = BUFFER_ENABLE
 # REG_MUX:
 # Default: positive input = AIN0, negative input = AINCOM
@@ -81,7 +82,7 @@ mux = POS_AIN0 | NEG_AINCOM
 adcon = CLKOUT_OFF | SDCS_OFF | gain_flags
 # REG_DRATE: 
 # 10 SPS places a filter zero at 50 Hz and 60 Hz for line noise rejection
-drate  = DRATE_1000
+drate  = DRATE_10
 # REG_IO: No GPIOs needed
 gpio = 0x00
 ################################################################################
