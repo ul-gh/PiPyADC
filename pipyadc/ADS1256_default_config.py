@@ -10,7 +10,7 @@ from .ADS1256_definitions import *
 # The following pins are compatible
 # with the Waveshare High Precision AD/DA board on the Raspberry Pi 2B and 3B
 #
-# SPI_CHANNEL corresponds to the chip select hardware bin controlled by the
+# SPI_CHANNEL corresponds to the chip select hardware pin controlled by the
 # SPI hardware. For the Waveshare board this pin is not even connected, so this
 # code does not use hardware-controlled CS and this is a don't care value.
 # FIXME: Implement hardware chip select as an option.
