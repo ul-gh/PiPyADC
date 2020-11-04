@@ -25,21 +25,44 @@ https://www.gnu.org/licenses/old-licenses/lgpl-2.1-standalone.html
 
 Ulrich Lukas, 2019-02-02
 
-## Run example on Raspbian Stretch:
-### Install wiringpi library:
-	sudo apt install python-pip
-	sudo pip install wiringpi
+## Installation on Raspbian Buster:
+The installation instructions are for Python 3, however, the library 
+and examples also work in Python 2. To install the package for Python 2,
+simply omit "3" from all commands below.
+
+### Optional: Install wiringpi library:
+	sudo apt install python3-pip
+	pip3 install wiringpi
+
+### Install PipyADC
+	git clone https://github.com/bleykauf/PiPyADC.git
+	cd PiPyADC
+	python3 setup.py install --user
+
+Alternatively, if you plan to make changes to the package, use
+
+	python3 setup.py develop --user
+
 ### Activate SPI bus and reboot system:
+
 	sudo sed -E -i s/"(#)(dtparam=spi).*"/"\2=on"/ /boot/config.txt
 	sudo reboot
-### Run example:
-	sudo python example.py
+
+### Run examples
+
+Navigate to the examples folder and start the example:
+
+	python3 example.py
+
+For `example_2.py`, NumPy has to be installed in addition:
+
+	sudo apt install python3-numpy
+	python3 example_2.py
 
 ## Example 2 added:
 + Importing configuration files for configuration of more than one ADC
 + Register access via instance properties
 + Reading ADC samples directly into a NumPy Array.
-
 
 ## ADS1256
 ```
