@@ -42,8 +42,8 @@ def get_config():
     cfg.VCS = "git"
     cfg.style = "pep440"
     cfg.tag_prefix = ""
-    cfg.parentdir_prefix = ""
-    cfg.versionfile_source = "aisim/_version.py"
+    cfg.parentdir_prefix = "pipyadc-"
+    cfg.versionfile_source = "pipyadc/_version.py"
     cfg.verbose = False
     return cfg
 
