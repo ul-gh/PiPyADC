@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from ADS1256_definitions import *
+from .ADS1256_definitions import *
 ################  Raspberry Pi Physical Interface Properties  #################
 # SPI bus configuration and GPIO pins used for the ADS1255/ADS1256.
 # These defaults are used by the constructor of the ADS1256 class.

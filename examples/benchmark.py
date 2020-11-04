@@ -10,9 +10,9 @@ Ulrich Lukas 2017-09-06
 """
 import sys
 import time
-from ADS1256_definitions import *
+from pipyadc.ADS1256_definitions import *
 from pipyadc import ADS1256
-import bench_config as conf
+import .bench_config as conf
 
 # Input pin for the potentiometer on the Waveshare Precision ADC board:
 POTI = POS_AIN0|NEG_AINCOM
