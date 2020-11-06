@@ -30,17 +30,23 @@ The installation instructions are for Python 3, however, the library
 and examples also work in Python 2. To install the package for Python 2,
 simply omit "3" from all commands below.
 
-### Optional: Install wiringpi library:
-	sudo apt install python3-pip
-	pip3 install wiringpi
+### Install PiPyADC
+To install PiPyADC, first make sure you have installed pip:
 
-### Install PipyADC
+	sudo apt install python3-pip
+
+Then, use it to install PiPyADC:
+
+	pip3 install pipyadc
+	
+If you plan to make changes to the package, first make sure that the wiringpi library is installed:
+
+	pip3 install wiringpi
+		
+Then, clone the repo and install it in development mode:
+	
 	git clone https://github.com/bleykauf/PiPyADC.git
 	cd PiPyADC
-	python3 setup.py install --user
-
-Alternatively, if you plan to make changes to the package, use
-
 	python3 setup.py develop --user
 
 ### Activate SPI bus and reboot system:
