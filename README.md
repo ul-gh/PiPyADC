@@ -23,14 +23,13 @@ Uses code from: https://github.com/heathsd/PyADS1256
 License: GNU LGPLv2.1, see:
 https://www.gnu.org/licenses/old-licenses/lgpl-2.1-standalone.html
 
-Ulrich Lukas, 2019-02-02
+Ulrich Lukas, 2020-11-06
 
 ## Installation on Raspbian Buster:
-The installation instructions are for Python 3, however, the library 
-and examples also work in Python 2. To install the package for Python 2,
-simply omit "3" from all commands below.
 
 ### Install PiPyADC
+Update 2020-11-06: This is now on pypi (Thanks to bleykauf for the pull request!)
+
 To install PiPyADC, first make sure you have installed pip:
 
 	sudo apt install python3-pip
@@ -45,7 +44,7 @@ If you plan to make changes to the package, first make sure that the wiringpi li
 		
 Then, clone the repo and install it in development mode:
 	
-	git clone https://github.com/bleykauf/PiPyADC.git
+	git clone https://github.com/ul-gh/PiPyADC.git
 	cd PiPyADC
 	python3 setup.py develop --user
 
@@ -72,7 +71,7 @@ For `example_2.py`, NumPy has to be installed in addition:
 
 ## ADS1256
 ```
-class ADS1256(__builtin__.object)
+class ADS1256()
 |  Python class for interfacing the ADS1256 and ADS1255 analog to
 |  digital converters with the Raspberry Pi.
 |  
@@ -97,7 +96,7 @@ class ADS1256(__builtin__.object)
 |  
 |  Methods defined here:
 |  
-|  __init__(self, conf=<module 'PiPyADC.ADS1256_default_config' from 'PiPyADC/ADS1256_default_config.pyc'>)
+|  __init__(self, conf=ADS1256_default_config)
 |      # Constructor for the ADC object: Hardware pin configuration must be
 |      # set up at initialization phase and can not be changed later.
 |      # Register/Configuration Flag settings are initialized, but these
@@ -270,13 +269,7 @@ class ADS1256(__builtin__.object)
 |      Arguments: register address, data byte (uint_8)
 |  
 |  ----------------------------------------------------------------------
-|  Data descriptors defined here:
-|  
-|  __dict__
-|      dictionary for instance variables (if defined)
-|  
-|  __weakref__
-|      list of weak references to the object (if defined)
+|  Properties / Data descriptors defined here:
 |  
 |  adcon
 |      Get/Set value of the ADC configuration register, REG_ADCON.
