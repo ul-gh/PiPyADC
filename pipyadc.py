@@ -23,6 +23,9 @@ import wiringpi as wp
 from ADS1256_definitions import *
 import ADS1256_default_config
 
+RPI_SPI_HW_PIN_CE0 = 8
+RPI_SPI_HW_PIN_CE1 = 7
+
 class ADS1256(object):
     """Python class for interfacing the ADS1256 and ADS1255 analog to
     digital converters with the Raspberry Pi.
@@ -46,6 +49,138 @@ class ADS1256(object):
     Documentation source: Texas Instruments ADS1255/ADS1256
     datasheet SBAS288: http://www.ti.com/lit/ds/sbas288j/sbas288j.pdf
     """
+    pigpio_instance = None
+
+    spi_id = None
+    # This class attribute sets SPI operation mode, usage of hardware
+    # chip select feature etc. according to pigpio documentation.
+    #
+    # This is initialised here with HW CS disabled, the respecitve flags are
+    # set when the instance is initialized with configured HW CS pins.
+    #
+    # The ADS1256 uses SPI MODE=1 <=> CPOL=0, CPHA=1. 
+    #                  bbbbbbRTnnnnWAuuupppmm
+    spi_flags      = 0b0000000000000011100001 
+
+    # Hardware pin configuration must be set at initialization phase.
+    # Register/Configuration Flag settings are initialized, but these
+    # can be changed during runtime via class properties.
+    # Default config is read from external file (module).
+    def __init__(self, conf=ADS1256_default_config, pi=None):
+        # Set up the pigpio object if not provided as an argument
+        # or already present as a class attribute
+        if pi is None:
+            if self.__class__.pigpio_instance is None:
+                self.__class__.pigpio_instance = io.pi()
+        else:
+            self.__class__.pigpio_instance = pi
+        # This is just a short-cut
+        self.pi = self.__class__.pigpio_instance
+
+        if not self.pi.connected:
+            raise IOError("Could not connect to hardware via pigpio library")
+
+        # Config and initialize the SPI and GPIO pins used by the ADC.
+        # The following four entries are actively used by the code:
+        self.DRDY_PIN     = conf.DRDY_PIN
+        self.RESET_PIN    = conf.RESET_PIN
+        self.PDWN_PIN     = conf.PDWN_PIN
+        self.DRDY_TIMEOUT = conf.DRDY_TIMEOUT
+        self.DRDY_DELAY   = conf.DRDY_DELAY
+
+        self.cs_bitbang_pin = conf.CS_PIN
+        self.spi_channel = 0 # For bit-banged or hardware CS method, this is a don't care value
+
+        # Only one GPIO input:
+        if conf.DRDY_PIN is not None:
+            self.DRDY_PIN = conf.DRDY_PIN
+            self.pi.set_mode(conf.DRDY_PIN, io.INPUT)
+
+        # GPIO Outputs.
+        # If chip select pin is set to None, the ADC pin is assumed to be hardwired to GND.
+        # If chip select is set to the SPI peripheral hardware-chip-select pins, this is
+        # handled by the SPI hardware. Otherwise, these pins are set to their inactive high state.
+        for pin in (conf.CS_PIN,
+                    conf.RESET_PIN,
+                    conf.PDWN_PIN
+                    ):
+            if pin not in (None,
+                           RPI_SPI_HW_PIN_CE0,
+                           RPI_SPI_HW_PIN_CE1
+                           ):
+                self.pi.set_mode(pin, io.OUTPUT)
+                self.pi.write(pin, 1)
+        if conf.CS_PIN == RPI_SPI_HW_PIN_CE0:
+            print("Setting HW chip select on channel 0")
+            self.cs_bitbang_pin = None
+            self.spi_channel = 0
+            self.__class__.spi_flags &= 0b1111111111111111011111
+        elif conf.CS_PIN == RPI_SPI_HW_PIN_CE1:
+            print("Setting HW chip select on channel 1")
+            self.cs_bitbang_pin = None
+            self.spi_channel = 1
+            self.__class__.spi_flags &= 0b1111111111111110111111
+
+        # Initialize the pigpio SPI setup. Return value is a handle for the
+        # SPI device.
+        if self.__class__.spi_id is None:
+            self.__class__.spi_id = self.pi.spi_open(self.spi_channel,
+                                                     conf.SPI_FREQUENCY,
+                                                     self.__class__.spi_flags
+                                                     )
+        # Always:
+        self.spi_id = self.__class__.spi_id
+        print(f"Obtained SPI devide handle ID: {self.spi_id}")
+        if not self.spi_id >= 0:
+            raise RuntimeError("SPI open error!")
+        
+        # ADS1255/ADS1256 command timing specifications. Do not change.
+        # Delay between requesting data and reading the bus for
+        # RDATA, RDATAC and RREG commands (datasheet: t_6 >= 50*CLKIN period).
+        self._DATA_TIMEOUT_US = int(1 + (50*1000000)/conf.CLKIN_FREQUENCY)
+        # Command-to-command timeout after SYNC and RDATAC
+        # commands (datasheet: t11)
+        self._SYNC_TIMEOUT_US = int(1 + (24*1000000)/conf.CLKIN_FREQUENCY)
+        # See datasheet ADS1256: CS needs to remain low
+        # for t_10 = 8*T_CLKIN after last SCLK falling edge of a command.
+        # Because this delay is longer than timeout t_11 for the
+        # RREG, WREG and RDATA commands of 4*T_CLKIN, we do not need
+        # the extra t_11 timeout for these commands when using software
+        # chip select selection and the _CS_TIMEOUT_US.
+        self._CS_TIMEOUT_US   = int(1 + (8*1000000)/conf.CLKIN_FREQUENCY)
+        # When using hardware/hard-wired chip select, still a command-
+        # to command timeout of t_11 is needed as a minimum for the
+        # RREG, WREG and RDATA commands.
+        self._T_11_TIMEOUT_US   = int(1 + (4*1000000)/conf.CLKIN_FREQUENCY)
+
+       
+        # Initialise class properties
+        self.v_ref         = conf.v_ref
+
+        # At hardware initialisation, a settling time for the oscillator
+        # is necessary before doing any register access.
+        # This is approx. 30ms, according to the datasheet.
+        time.sleep(0.03)
+        self.wait_DRDY()
+        # Device reset for defined initial state
+        self.reset()
+
+        # Configure ADC registers:
+        # Status register not yet set, only variable written to avoid multiple
+        # triggering of the AUTOCAL procedure by changing other register flags
+        self._status       = conf.status
+        # Class properties now configure registers via their setter functions
+        self.mux           = conf.mux
+        self.adcon         = conf.adcon
+        self.drate         = conf.drate
+        self.gpio          = conf.gpio
+        self.status        = conf.status
+
+        if not self.chip_ID == 3:
+            raise RuntimeError("Received wrong chip ID value for ADS1256. "
+                               "Hardware connected?")
+
+
     @property
     def v_ref(self):
         """Get/Set ADC analog reference input voltage differential.
@@ -263,98 +398,17 @@ class ADS1256(object):
         raise AttributeError("This is a read-only attribute")
 
 
-    # Constructor for the ADC object: Hardware pin configuration must be
-    # set up at initialization phase and can not be changed later.
-    # Register/Configuration Flag settings are initialized, but these
-    # can be changed during runtime via class properties.
-    # Default config is read from external file (module) import
-    def __init__(self, conf=ADS1256_default_config, pi=None):
-        # Set up the pigpio object if not provided as an argument
-        if pi is None:
-            pi = io.pi()
-        self.pi = pi
-        if not pi.connected:
-            raise IOError("Could not connect to hardware via pigpio library")
-        # Config and initialize the SPI and GPIO pins used by the ADC.
-        # The following four entries are actively used by the code:
-        self.SPI_CHANNEL  = conf.SPI_CHANNEL
-        self.DRDY_PIN     = conf.DRDY_PIN
-        self.CS_PIN       = conf.CS_PIN
-        self.DRDY_TIMEOUT = conf.DRDY_TIMEOUT
-        self.DRDY_DELAY   = conf.DRDY_DELAY
-
-        # Only one GPIO input:
-        if conf.DRDY_PIN is not None:
-            self.DRDY_PIN = conf.DRDY_PIN
-            pi.set_mode(conf.DRDY_PIN, io.INPUT)
-
-        # GPIO Outputs. Only the CS_PIN is currently actively used. ~RESET and 
-        # ~PDWN must be set to static logic HIGH level if not hardwired:
-        for pin in (conf.CS_PIN, conf.RESET_PIN, conf.PDWN_PIN):
-            if pin is not None:
-                pi.set_mode(pin, io.OUTPUT)
-                pi.write(pin, 1)
-        
-        # Initialize the pigpio SPI setup. Return value is a handle for the
-        # SPI device.
-        self.spi_id = pi.spi_open(
-            conf.SPI_CHANNEL, conf.SPI_FREQUENCY, conf.SPI_FLAGS
-        )
-        
-        # ADS1255/ADS1256 command timing specifications. Do not change.
-        # Delay between requesting data and reading the bus for
-        # RDATA, RDATAC and RREG commands (datasheet: t_6 >= 50*CLKIN period).
-        self._DATA_TIMEOUT_US = int(1 + (50*1000000)/conf.CLKIN_FREQUENCY)
-        # Command-to-command timeout after SYNC and RDATAC
-        # commands (datasheet: t11)
-        self._SYNC_TIMEOUT_US = int(1 + (24*1000000)/conf.CLKIN_FREQUENCY)
-        # See datasheet ADS1256: CS needs to remain low
-        # for t_10 = 8*T_CLKIN after last SCLK falling edge of a command.
-        # Because this delay is longer than timeout t_11 for the
-        # RREG, WREG and RDATA commands of 4*T_CLKIN, we do not need
-        # the extra t_11 timeout for these commands when using software
-        # chip select selection and the _CS_TIMEOUT_US.
-        self._CS_TIMEOUT_US   = int(1 + (8*1000000)/conf.CLKIN_FREQUENCY)
-        # When using hardware/hard-wired chip select, still a command-
-        # to command timeout of t_11 is needed as a minimum for the
-        # RREG, WREG and RDATA commands.
-        self._T_11_TIMEOUT_US   = int(1 + (4*1000000)/conf.CLKIN_FREQUENCY)
-
-       
-        # Initialise class properties
-        self.v_ref         = conf.v_ref
-
-        # At hardware initialisation, a settling time for the oscillator
-        # is necessary before doing any register access.
-        # This is approx. 30ms, according to the datasheet.
-        time.sleep(0.03)
-        self.wait_DRDY()
-        # Device reset for defined initial state
-        self.reset()
-
-        # Configure ADC registers:
-        # Status register not yet set, only variable written to avoid multiple
-        # triggering of the AUTOCAL procedure by changing other register flags
-        self._status       = conf.status
-        # Class properties now configure registers via their setter functions
-        self.mux           = conf.mux
-        self.adcon         = conf.adcon
-        self.drate         = conf.drate
-        self.gpio          = conf.gpio
-        self.status        = conf.status
-
-
     def _chip_select(self):
         # If chip select hardware pin is connected to SPI bus hardware pin or
         # hardwired to GND, do nothing.
-        if self.CS_PIN is not None:
-            self.pi.write(self.CS_PIN, 0)
+        if self.cs_bitbang_pin is not None:
+            self.pi.write(self.cs_bitbang_pin, 0)
 
     # Release chip select and implement t_11 timeout
     def _chip_release(self):
-        if self.CS_PIN is not None:
+        if self.cs_bitbang_pin is not None:
             wp.delayMicroseconds(self._CS_TIMEOUT_US)
-            self.pi.write(self.CS_PIN, 1)
+            self.pi.write(self.cs_bitbang_pin, 1)
         else:
             # The minimum t_11 timeout between commands, see datasheet Figure 1.
             wp.delayMicroseconds(self._T_11_TIMEOUT_US)
@@ -515,7 +569,6 @@ class ADS1256(object):
         # Release chip select and implement t_11 timeout
         self._chip_release()
 
-
     def reset(self):
         """Reset all registers except CLK0 and CLK1 bits
         to reset values and Polls for DRDY change / timeout afterwards.
@@ -526,6 +579,15 @@ class ADS1256(object):
         # Release chip select and implement t_11 timeout
         self._chip_release()
 
+    def hard_reset(self):
+        """Reset by toggling the hardware pin as configured as "RESET_PIN".
+        """
+        print("Toggling reset pin...")
+        self.pi.write(self.RESET_PIN, 0)
+        wp.delayMicroseconds(100000)
+        self.pi.write(self.RESET_PIN, 1)
+        wp.delayMicroseconds(500000)
+ 
 
     def sync(self):
         """Restart the ADC conversion cycle with a SYNC + WAKEUP

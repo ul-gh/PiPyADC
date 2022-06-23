@@ -35,10 +35,10 @@ SPI_FREQUENCY = 976563
 #
 #CS_PIN      = None
 #CS_PIN      = 22 # HACK unused pin
-CS_PIN      = 8 # CH0
-DRDY_PIN    = 5 # CH0
-#CS_PIN      = 7 # CH1
-#DRDY_PIN    = 6 # CH1
+#CS_PIN      = 8 # CH0
+#DRDY_PIN    = 5 # CH0
+CS_PIN      = 7 # CH1
+DRDY_PIN    = 6 # CH1
 RESET_PIN   = 3
 PDWN_PIN    = 2
 ###############################################################################
