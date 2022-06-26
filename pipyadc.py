@@ -23,8 +23,6 @@ import wiringpi as wp
 from ADS1256_definitions import *
 import ADS1256_default_config
 
-RPI_SPI_HW_PIN_CE0 = 8
-RPI_SPI_HW_PIN_CE1 = 7
 
 class ADS1256(object):
     """Python class for interfacing the ADS1256 and ADS1255 analog to
@@ -51,16 +49,7 @@ class ADS1256(object):
     """
     pigpio_instance = None
 
-    spi_id = None
-    # This class attribute sets SPI operation mode, usage of hardware
-    # chip select feature etc. according to pigpio documentation.
-    #
-    # This is initialised here with HW CS disabled, the respecitve flags are
-    # set when the instance is initialized with configured HW CS pins.
-    #
-    # The ADS1256 uses SPI MODE=1 <=> CPOL=0, CPHA=1. 
-    #                  bbbbbbRTnnnnWAuuupppmm
-    spi_flags      = 0b0000000000000011100001 
+    occupied_cs_channels = []
 
     # Hardware pin configuration must be set at initialization phase.
     # Register/Configuration Flag settings are initialized, but these
@@ -88,8 +77,31 @@ class ADS1256(object):
         self.DRDY_TIMEOUT = conf.DRDY_TIMEOUT
         self.DRDY_DELAY   = conf.DRDY_DELAY
 
-        self.cs_bitbang_pin = conf.CS_PIN
-        self.spi_channel = 0 # For bit-banged or hardware CS method, this is a don't care value
+        if conf.HW_CHIP_SELECT_CHANNEL is None:
+            print(f"Opening SPI channel using bit-bang CS on GPIO no.: {conf.CS_PIN}")
+            self.cs_bitbang_pin = conf.CS_PIN
+            self.spi_channel = 0 # Don't care
+        else:
+            if conf.HW_CHIP_SELECT_CHANNEL not in conf.HW_CHIP_SELECT_CHANNELS_ACTIVE:
+                raise RuntimeError("HW chip select channel specified but"
+                                   "not configured as active")
+            elif conf.HW_CHIP_SELECT_CHANNEL in self.__class__.occupied_cs_channels:
+                raise RuntimeError("HW chip select channel is occupied")
+            elif not 0 <= conf.HW_CHIP_SELECT_CHANNEL <= 2:
+                raise ValueError("CS channel must be between 0 and 2")
+            print("Activating SPI channel using HW chip select on channel "
+                  f"no.: {conf.HW_CHIP_SELECT_CHANNEL}")
+            self.cs_bitbang_pin = None
+            self.__class__.occupied_cs_channels.append(conf.HW_CHIP_SELECT_CHANNEL)
+            self.spi_channel = conf.HW_CHIP_SELECT_CHANNEL
+        # The ADS1256 uses SPI MODE=1 <=> CPOL=0, CPHA=1. 
+        #                  bbbbbbRTnnnnWAuuupppmm
+        spi_flags      = 0b0000000000000011100001 
+        for ch in conf.HW_CHIP_SELECT_CHANNELS_ACTIVE:
+            if not 0 <= ch <= 2:
+                raise ValueError("CS channel must be between 0 and 2")
+            spi_flags &= ~(0b100000 << ch)
+        print(f"SPI flags: {spi_flags:b}")
 
         # Only one GPIO input:
         if conf.DRDY_PIN is not None:
@@ -100,36 +112,21 @@ class ADS1256(object):
         # If chip select pin is set to None, the ADC pin is assumed to be hardwired to GND.
         # If chip select is set to the SPI peripheral hardware-chip-select pins, this is
         # handled by the SPI hardware. Otherwise, these pins are set to their inactive high state.
-        for pin in (conf.CS_PIN,
+        for pin in (self.cs_bitbang_pin,
                     conf.RESET_PIN,
                     conf.PDWN_PIN
                     ):
-            if pin not in (None,
-                           RPI_SPI_HW_PIN_CE0,
-                           RPI_SPI_HW_PIN_CE1
-                           ):
+            if pin is not None:
+                print(f"Setting pin to output: {pin}")
                 self.pi.set_mode(pin, io.OUTPUT)
                 self.pi.write(pin, 1)
-        if conf.CS_PIN == RPI_SPI_HW_PIN_CE0:
-            print("Setting HW chip select on channel 0")
-            self.cs_bitbang_pin = None
-            self.spi_channel = 0
-            self.__class__.spi_flags &= 0b1111111111111111011111
-        elif conf.CS_PIN == RPI_SPI_HW_PIN_CE1:
-            print("Setting HW chip select on channel 1")
-            self.cs_bitbang_pin = None
-            self.spi_channel = 1
-            self.__class__.spi_flags &= 0b1111111111111110111111
 
         # Initialize the pigpio SPI setup. Return value is a handle for the
         # SPI device.
-        if self.__class__.spi_id is None:
-            self.__class__.spi_id = self.pi.spi_open(self.spi_channel,
-                                                     conf.SPI_FREQUENCY,
-                                                     self.__class__.spi_flags
-                                                     )
-        # Always:
-        self.spi_id = self.__class__.spi_id
+        self.spi_id = self.pi.spi_open(self.spi_channel,
+                                       conf.SPI_FREQUENCY,
+                                       spi_flags
+                                       )
         print(f"Obtained SPI devide handle ID: {self.spi_id}")
         if not self.spi_id >= 0:
             raise RuntimeError("SPI open error!")
@@ -153,8 +150,6 @@ class ADS1256(object):
         # RREG, WREG and RDATA commands.
         self._T_11_TIMEOUT_US   = int(1 + (4*1000000)/conf.CLKIN_FREQUENCY)
 
-       
-        # Initialise class properties
         self.v_ref         = conf.v_ref
 
         # At hardware initialisation, a settling time for the oscillator
@@ -176,7 +171,11 @@ class ADS1256(object):
         self.gpio          = conf.gpio
         self.status        = conf.status
 
-        if not self.chip_ID == 3:
+        self.wakeup()
+        # This invokes a getter function..
+        chip_ID = self.chip_ID
+        print(f"Chip ID: {chip_ID}")
+        if not chip_ID == 3:
             raise RuntimeError("Received wrong chip ID value for ADS1256. "
                                "Hardware connected?")
 
@@ -402,11 +401,13 @@ class ADS1256(object):
         # If chip select hardware pin is connected to SPI bus hardware pin or
         # hardwired to GND, do nothing.
         if self.cs_bitbang_pin is not None:
+            print(f"Selecting CS pin: {self.cs_bitbang_pin}")
             self.pi.write(self.cs_bitbang_pin, 0)
 
     # Release chip select and implement t_11 timeout
     def _chip_release(self):
         if self.cs_bitbang_pin is not None:
+            print(f"Releasing CS pin: {self.cs_bitbang_pin}")
             wp.delayMicroseconds(self._CS_TIMEOUT_US)
             self.pi.write(self.cs_bitbang_pin, 1)
         else:

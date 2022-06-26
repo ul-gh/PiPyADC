@@ -126,7 +126,9 @@ def do_measurement():
         # The result channel values are directy read into the array specified
         # as the second argument, which must be a mutable type.
         ads1.read_sequence(CH_SEQUENCE, buffer1)
+        time.sleep(0.5)
         ads2.read_sequence(CH_SEQUENCE, buffer2)
+        time.sleep(0.5)
     
         elapsed = time.time() - timestamp
         if elapsed > 1:

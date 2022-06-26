@@ -7,15 +7,30 @@ from ADS1256_definitions import *
 # To create multiple class instances for more than one AD converter, a unique
 # configuration must be specified as argument for each instance.
 #
-# The following pins are compatible
-# with the Waveshare High Precision AD/DA board on the Raspberry Pi 2B and 3B
-#
+# The presets are supposed to be compatible
+# with the Waveshare High Precision AD/DA board on the Raspberry Pi 2B and 3B.
+###############
+
+# 0 for primary SPI, 1 for secondary.
+SPI_CHANNEL = 0
+# Tuple of all chip select channels to be controlled by the SPI hardware for the
+# SPI bus to which this ADC chip is connected. 0 for CE0, 1 for CE1, 2 for CE2. 
+# Empty tuple for software (bit-banging) chip-select control.
+# HW_CHIP_SELECT_CHANNELS_ACTIVE = ()
+HW_CHIP_SELECT_CHANNELS_ACTIVE = (0,1)
+# The hardware chip select channel number corresponding to the output pin
+# connected to the ADC configured here.
+# Must be set to None if bit-banging (software) chip select is used.
+#HW_CHIP_SELECT_CHANNEL = None
+HW_CHIP_SELECT_CHANNEL = 0
+
 # SPI clock rate in Hz. The ADS1256 supports a minimum of 1/10th of the output
 # sample data rate in Hz to 1/4th of the oscillator CLKIN_FREQUENCY which
 # results in a value of 1920000 Hz for the Waveshare board. However, since
 # the Raspberry pi only supports power-of-two fractions of the 250MHz system
 # clock, the closest value would be 1953125 Hz, which is slightly out of spec
 # for the ADS1256. Choosing 250MHz/256 = 976563 Hz is a safe choice.
+#SPI_FREQUENCY = 976563
 SPI_FREQUENCY = 976563
 # Risking the slightly out-of-spec speed:
 #SPI_FREQUENCY = 1953125
@@ -26,21 +41,16 @@ SPI_FREQUENCY = 976563
 # If DRDY is not connected to an input, a sufficient DRDY_TIMEOUT must be specified
 # further below and aquisition will be slower.
 #
-# The chip select can be hardwired to GND if only one chip is connected.
-# If the ADS1256 is connected to the Raspberry Pi dedicated SPI hardware chip
-# enable outputs, the hardware chip select mode is enabled and the correct
-# SPI channel is selected based on the GPIO pin number.
-# For other GPIOs connected as chip-select, like for the Waveshare ADC board,
-# bit-banging chip select method is enabled.
-#
+# Chip select GPIO pin number (Broadcom numbering scheme),
+# only relevant for bit-banging (software) chip select method.
 #CS_PIN      = None
-#CS_PIN      = 22 # HACK unused pin
 CS_PIN      = 8 # CH0
 DRDY_PIN    = 5 # CH0
 #CS_PIN      = 7 # CH1
 #DRDY_PIN    = 6 # CH1
 RESET_PIN   = 3
 PDWN_PIN    = 2
+
 ###############################################################################
 
 ##################  ADS1256 Constant Configuration Settings  ###################
