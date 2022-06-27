@@ -18,12 +18,13 @@ import sys
 import time
 import numpy as np
 import itertools
+import pigpio as io
 from ADS1256_definitions import *
 from pipyadc import ADS1256
 # In this example, we pretend myconfig_2 was a different configuration file
 # named "myconfig_2.py" for a second ADS1256 chip connected to the SPI bus.
-import test_config
-import test2_config
+import device1_config
+import device2_config
 
 ### START EXAMPLE ###
 ################################################################################
@@ -80,24 +81,19 @@ CH_OFFSET = np.array((-10,   0, -85,   0, 750,   0,   0,   0), dtype=np.int)
 GAIN_CAL  = np.array((1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0), dtype=np.float)
 ################################################################################
 
-# Using the Numpy library, digital signal processing is easy as (Raspberry) Pi..
-# However, this constant only specifies the length of a moving average.
-FILTER_SIZE = 32
-################################################################################
 
+
+#pi = io.pi()
 
 def do_measurement():
     ### STEP 1: Initialise ADC objects for two chips connected to the SPI bus.
-    # In this example, we pretend myconfig_2 was a different configuration file
-    # named "myconfig_2.py" for a second ADS1256 chip connected to the SPI bus.
-    # This file must be imported, see top of the this file.
-    # Omitting the first chip here, as this is only an example.
-
-    ads1 = ADS1256(test_config)
+    ads1 = ADS1256(device1_config)
+#    ads1 = ADS1256(device1_config, pi)
     # (Note1: See ADS1256_default_config.py, see ADS1256 datasheet)
     # (Note2: Input buffer on means limited voltage range 0V...3V for 5V supply)
-    ads2 = ADS1256(test2_config)
-    
+    ads2 = ADS1256(device2_config)
+#    ads2 = ADS1256(device2_config, pi)
+
     # Just as an example: Change the default sample rate of the ADS1256:
     # This shows how to acces ADS1256 registers via instance property
     ads1.drate = DRATE_100
@@ -115,9 +111,7 @@ def do_measurement():
     buffer2 = np.zeros((columns), dtype=np.int)
     
     # From now, update filter_buffer cyclically with new ADC samples and
-    # calculate results with averaged results.
-    print("\n\nOutput values averaged over {} ADC samples:".format(FILTER_SIZE))
-    # The following is an endless loop!
+    # display results
     timestamp = time.time() # Limit output data rate to fixed time interval
     while True:
         #
@@ -126,9 +120,7 @@ def do_measurement():
         # The result channel values are directy read into the array specified
         # as the second argument, which must be a mutable type.
         ads1.read_sequence(CH_SEQUENCE, buffer1)
-        time.sleep(0.5)
         ads2.read_sequence(CH_SEQUENCE, buffer2)
-        time.sleep(0.5)
     
         elapsed = time.time() - timestamp
         if elapsed > 1:
@@ -152,6 +144,7 @@ def do_measurement():
 def nice_output(digits, volts, digits2, volts2):
     sys.stdout.write(
           "\0337" # Store cursor position
+          "\n\n"
         +
 """These are the raw sample values for the ADC 1 channels:
 Poti_CH0,  LDR_CH1,     AIN2,     AIN3,     AIN4,     AIN7, Poti NEG, Short 0V
@@ -192,5 +185,6 @@ try:
     do_measurement()
 
 except (KeyboardInterrupt):
-    print("\n"*8 + "User exit.\n")
+    print("\n"*18 + "User exit.\n")
+#    pi.stop()
  

@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import logging
 from ADS1256_definitions import *
 ################  Raspberry Pi Physical Interface Properties  #################
 # SPI bus configuration and GPIO pins used for the ADS1255/ADS1256.
@@ -10,20 +11,11 @@ from ADS1256_definitions import *
 # The presets are supposed to be compatible
 # with the Waveshare High Precision AD/DA board on the Raspberry Pi 2B and 3B.
 ###############
+#LOGLEVEL = logging.WARNING
+LOGLEVEL = logging.DEBUG
 
-# 0 for primary SPI, 1 for secondary.
-SPI_CHANNEL = 0
-# Tuple of all chip select channels to be controlled by the SPI hardware for the
-# SPI bus to which this ADC chip is connected. 0 for CE0, 1 for CE1, 2 for CE2. 
-# Empty tuple for software (bit-banging) chip-select control.
-# HW_CHIP_SELECT_CHANNELS_ACTIVE = ()
-HW_CHIP_SELECT_CHANNELS_ACTIVE = (0,1)
-# The hardware chip select channel number corresponding to the output pin
-# connected to the ADC configured here.
-# Must be set to None if bit-banging (software) chip select is used.
-#HW_CHIP_SELECT_CHANNEL = None
-HW_CHIP_SELECT_CHANNEL = 0
-
+# 0 for main SPI bus, 1 for auxiliary SPI bus.
+SPI_BUS = 0
 # SPI clock rate in Hz. The ADS1256 supports a minimum of 1/10th of the output
 # sample data rate in Hz to 1/4th of the oscillator CLKIN_FREQUENCY which
 # results in a value of 1920000 Hz for the Waveshare board. However, since
@@ -34,22 +26,34 @@ HW_CHIP_SELECT_CHANNEL = 0
 SPI_FREQUENCY = 976563
 # Risking the slightly out-of-spec speed:
 #SPI_FREQUENCY = 1953125
+# If set to True this will perform a chip reset using the hardware reset line
+# when initializing the device.
+CHIP_HARD_RESET_ON_START = True
 
-# The RPI GPIOs used: All of these are optional and must be set to None if not
-# used or if handled by other hardware.
-#
+#### The RPI GPIOs used.
+# All of these use the Broadcom numbering scheme!
+#######################
+# Optional: Tuple of all (chip select) GPIO numbers (Broadcom numbering scheme)
+# to be configured as an output and initialised to (inactive) logic high state
+# before bus communication starts.
+# This is necessary if the GPIOs are not otherwise handled.
+#CHIP_SELECT_GPIOS_INITIALIZE = ()
+CHIP_SELECT_GPIOS_INITIALIZE = (7, 8)
+# Chip select GPIO pin number.
+# This is required as hardware chip select can not be used with the ADS125x
+# devices using this library
+CS_PIN      = 8 # CH0
+#CS_PIN      = 7 # CH1
 # If DRDY is not connected to an input, a sufficient DRDY_TIMEOUT must be specified
 # further below and aquisition will be slower.
-#
-# Chip select GPIO pin number (Broadcom numbering scheme),
-# only relevant for bit-banging (software) chip select method.
-#CS_PIN      = None
-CS_PIN      = 8 # CH0
 DRDY_PIN    = 5 # CH0
-#CS_PIN      = 7 # CH1
 #DRDY_PIN    = 6 # CH1
-RESET_PIN   = 3
-PDWN_PIN    = 2
+# Hardware reset pin is optional but strongly suggested in case multiple devices
+# are connected to the bus as the ADS125x will lock-up in case multiple chips
+# are selected simultaneously by accident.
+RESET_PIN   = 3 # Set to None if not used.
+# Optional power down pin
+PDWN_PIN    = 2 # Set to None if not used.
 
 ###############################################################################
 
