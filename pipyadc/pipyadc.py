@@ -20,12 +20,11 @@ Ulrich Lukas, 2017-03-03
 import time
 import logging
 import pigpio as io
-import wiringpi as wp
-from ADS1256_definitions import *
-import ADS1256_default_config
+from .ADS1256_definitions import *
+import . import ADS1256_default_config
 
 
-class ADS1256(object):
+class ADS1256():
     """Python class for interfacing the ADS1256 and ADS1255 analog to
     digital converters with the Raspberry Pi.
 

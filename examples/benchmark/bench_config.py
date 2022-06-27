@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 import logging
-from ADS1256_definitions import *
+from pipyadc.ADS1256_definitions import *
 ################  Raspberry Pi Physical Interface Properties  #################
 # SPI bus configuration and GPIO pins used for the ADS1255/ADS1256.
 # These defaults are used by the constructor of the ADS1256 class.
@@ -100,7 +100,7 @@ mux = POS_AIN0 | NEG_AINCOM
 adcon = CLKOUT_OFF | SDCS_OFF | gain_flags
 # REG_DRATE: 
 # 10 SPS places a filter zero at 50 Hz and 60 Hz for line noise rejection
-drate  = DRATE_10
+drate  = DRATE_1000
 # REG_IO: No GPIOs needed
 gpio = 0x00
 ################################################################################

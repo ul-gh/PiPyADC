@@ -1,15 +1,12 @@
 # -*- coding: utf-8 -*-
 import logging
-from ADS1256_definitions import *
+from pipyadc.ADS1256_definitions import *
 ################  Raspberry Pi Physical Interface Properties  #################
 # SPI bus configuration and GPIO pins used for the ADS1255/ADS1256.
 # These defaults are used by the constructor of the ADS1256 class.
 #
 # To create multiple class instances for more than one AD converter, a unique
 # configuration must be specified as argument for each instance.
-#
-# The presets are supposed to be compatible
-# with the Waveshare High Precision AD/DA board on the Raspberry Pi 2B and 3B.
 ###############
 #LOGLEVEL = logging.WARNING
 LOGLEVEL = logging.DEBUG
@@ -100,7 +97,7 @@ mux = POS_AIN0 | NEG_AINCOM
 adcon = CLKOUT_OFF | SDCS_OFF | gain_flags
 # REG_DRATE: 
 # 10 SPS places a filter zero at 50 Hz and 60 Hz for line noise rejection
-drate  = DRATE_1000
+drate  = DRATE_10
 # REG_IO: No GPIOs needed
 gpio = 0x00
 ################################################################################

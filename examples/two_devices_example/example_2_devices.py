@@ -2,23 +2,18 @@
 # -*- coding: utf-8 -*-
 """PiPyADC: Example file for class ADS1256 in module pipyadc:
 
-ADS1256 cycling through eight input channels.
+Two ADS1256 devicwes on the same SPI bus,
+cycling through eight input channels each.
 
-Default data rate changed to 100 SPS. Check if hardware is connected.
-Moving average filter over 32 samples.
-
-Reading ADC sample data directly into a Numpy array as a buffer
-for further processing, e.g. FIR filter, PID control, ...
-
-Hardware: Waveshare ADS1256 board interfaced to the Raspberry Pi 3
+Hardware: Isoflux ADS1256 board interfaced to the Raspberry Pi 2B, 3B or 4
  
-Ulrich Lukas 2017-03-10
+Ulrich Lukas 2022-06-28
 """
 import sys
 import time
 import numpy as np
 import pigpio as io
-from ADS1256_definitions import *
+from pipyadc.ADS1256_definitions import *
 from pipyadc import ADS1256
 # Two config files for different ADS1256 devices connected to the same SPI bus
 import device1_config

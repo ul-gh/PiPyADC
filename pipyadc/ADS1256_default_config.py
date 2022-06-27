@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 import logging
-from ADS1256_definitions import *
+from .ADS1256_definitions import *
 ################  Raspberry Pi Physical Interface Properties  #################
 # SPI bus configuration and GPIO pins used for the ADS1255/ADS1256.
 # These defaults are used by the constructor of the ADS1256 class.
@@ -42,12 +42,12 @@ CHIP_SELECT_GPIOS_INITIALIZE = (7, 8)
 # Chip select GPIO pin number.
 # This is required as hardware chip select can not be used with the ADS125x
 # devices using this library
-#CS_PIN      = 8 # CH0
-CS_PIN      = 7 # CH1
+CS_PIN      = 8 # CH0
+#CS_PIN      = 7 # CH1
 # If DRDY is not connected to an input, a sufficient DRDY_TIMEOUT must be specified
 # further below and aquisition will be slower.
-#DRDY_PIN    = 5 # CH0
-DRDY_PIN    = 6 # CH1
+DRDY_PIN    = 5 # CH0
+#DRDY_PIN    = 6 # CH1
 # Hardware reset pin is optional but strongly suggested in case multiple devices
 # are connected to the bus as the ADS125x will lock-up in case multiple chips
 # are selected simultaneously by accident.
