@@ -1,16 +1,14 @@
 # -*- coding: utf-8 -*-
 import logging
 from pipyadc.ADS1256_definitions import *
-################  Raspberry Pi Physical Interface Properties  #################
+################ Configuration file for one ADS1256 instance  #################
 # SPI bus configuration and GPIO pins used for the ADS1255/ADS1256.
-# These defaults are used by the constructor of the ADS1256 class.
 #
-# To create multiple class instances for more than one AD converter, a unique
-# configuration must be specified as argument for each instance.
+# These settings are for the Isoflux hardware which has two ADS1256 devices
+# sharing the Raspberry Pi primary SPI bus.
 #
-# The presets are supposed to be compatible
-# with the Waveshare High Precision AD/DA board on the Raspberry Pi 2B and 3B.
-###############
+# This is the config for the first of the two ADS1256 devices..
+
 #LOGLEVEL = logging.WARNING
 LOGLEVEL = logging.DEBUG
 
@@ -30,22 +28,22 @@ SPI_FREQUENCY = 976563
 # when initializing the device.
 CHIP_HARD_RESET_ON_START = True
 
-#### The RPI GPIOs used.
-# All of these use the Broadcom numbering scheme!
-#######################
-# Optional: Tuple of all (chip select) GPIO numbers (Broadcom numbering scheme)
-# to be configured as an output and initialised to (inactive) logic high state
-# before bus communication starts.
-# This is necessary if the GPIOs are not otherwise handled.
-#CHIP_SELECT_GPIOS_INITIALIZE = ()
+#### Raspberry Pi GPIO configuration ##########################################
+# =====> NEW in version 2 since using pigpio instead of wiringpi library:
+# =====> Raspberry Pi pinning now uses the Broadcom numbering scheme!
+#
+# Tuple of all (chip select) GPIO numbers to be configured as an output and
+# initialised to (inactive) logic high state before bus communication starts.
+# Necessary for more than one SPI device if GPIOs are not otherwise handled.
+#CHIP_SELECT_GPIOS_INITIALIZE = (7, 8)
 CHIP_SELECT_GPIOS_INITIALIZE = (7, 8)
 # Chip select GPIO pin number.
 # This is required as hardware chip select can not be used with the ADS125x
 # devices using this library
 CS_PIN      = 8 # CH0
 #CS_PIN      = 7 # CH1
-# If DRDY is not connected to an input, a sufficient DRDY_TIMEOUT must be specified
-# further below and aquisition will be slower.
+# If DRDY is not connected to an input, a sufficient DRDY_TIMEOUT must be
+# specified further below and aquisition will be slower.
 DRDY_PIN    = 5 # CH0
 #DRDY_PIN    = 6 # CH1
 # Hardware reset pin is optional but strongly suggested in case multiple devices

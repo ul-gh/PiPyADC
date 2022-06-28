@@ -21,7 +21,7 @@ import time
 import logging
 import pigpio as io
 from .ADS1256_definitions import *
-import . import ADS1256_default_config
+from . import ADS1256_default_config
 
 
 class ADS1256():
@@ -86,7 +86,11 @@ class ADS1256():
             raise RuntimeError("Chip select pin is already in use. Check config!")
         self.__class__.occupied_cs_pins.append(conf.CS_PIN)
         if hasattr(conf, "CHIP_SELECT_GPIOS_INITIALIZE"):
-            for pin in conf.CHIP_SELECT_GPIOS_INITIALIZE:
+            if type(conf.CHIP_SELECT_GPIOS_INITIALIZE) is int:
+                cs_gpios = (conf.CHIP_SELECT_GPIOS_INITIALIZE, )
+            else:
+                cs_gpios = conf.CHIP_SELECT_GPIOS_INITIALIZE
+            for pin in cs_gpios:
                 if pin is not None:
                     logging.debug(f"Initializing chip select pin on GPIO no. {pin}")
                     self.pi.set_mode(pin, io.OUTPUT)

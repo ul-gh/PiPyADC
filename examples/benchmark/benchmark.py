@@ -1,18 +1,16 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
-"""PiPyADC: Example file for class ADS1256 in module pipyadc:
+"""Benchmark for class ADS1256 in pipyadc package
 
-ADS1256 timing.
-
-Hardware: Waveshare ADS1256 board interfaced to the Raspberry Pi 3
+Hardware: Isoflux ADS1256 board interfaced to the Raspberry Pi 3
  
-Ulrich Lukas 2017-09-06
+Ulrich Lukas 2022-06-28
 """
 import sys
 import time
 from pipyadc.ADS1256_definitions import *
 from pipyadc import ADS1256
-import bench_config as conf
+import bench_config
 
 # Input pin for the potentiometer on the Waveshare Precision ADC board:
 POTI = POS_AIN0|NEG_AINCOM
@@ -25,7 +23,7 @@ CH_SEQUENCE = (POTI, LDR)
 
 def do_measurement():
     ### STEP 1: Initialise ADC object:
-    ads = ADS1256(conf)
+    ads = ADS1256(bench_config)
     n_loop = 1000
 
     ### STEP 2: Gain and offset self-calibration:
@@ -43,7 +41,6 @@ def do_measurement():
     nice_output(raw_channels, voltages)
 
     # Timing info
-    print("\n"*9)
     delta = timestamp2 - timestamp1
     print("Delta seconds: {}".format(delta))
     per_sample = 1.0E6*delta/(n_loop*len(CH_SEQUENCE))
@@ -57,8 +54,6 @@ def do_measurement():
 # Format nice looking text output:
 def nice_output(digits, volts):
     sys.stdout.write(
-          "\0337" # Store cursor position
-        +
 """
 These are the raw sample values for the channels:
 Poti_CH0,  LDR_CH1,     AIN2,     AIN3,     AIN4,     AIN7, Poti NEG, Short 0V
@@ -71,7 +66,6 @@ These are the sample values converted to voltage in V for the channels:
 Poti_CH0,  LDR_CH1,     AIN2,     AIN3,     AIN4,     AIN7, Poti NEG, Short 0V
 """
         + ", ".join(["{: 8.3f}".format(i) for i in volts])
-        + "\n\033[J\0338" # Restore cursor position etc.
     )
 
 
