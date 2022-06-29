@@ -23,7 +23,7 @@ Limitation:
 
 Download: https://github.com/ul-gh/PiPyADC
 
-Depends on pigpio library, see: https://abyz.me.uk/rpi/pigpio/python.html
+Documentation of pigpio library: https://abyz.me.uk/rpi/pigpio/python.html  
 Uses code from: https://github.com/heathsd/PyADS1256
 
 License: GNU LGPLv2.1, see:
@@ -34,16 +34,17 @@ Ulrich Lukas, 2022-06-28
 ## Run example on Raspberry Pi OS:
 ### Install:
 	# numpy is optional for running the Isoflux hardware examples
-	sudo apt install python3-pip python3-numpy pigpio python3-pigpio
+	sudo apt install python3-pip python3-numpy pigpio python3-pigpio git
 	pip3 install pipyadc
 ### Enable pigpio system service (started at boot)
-	sudo systemctl enable pigpio.service
+	sudo systemctl enable pigpiod.service
 ### Activate SPI bus and reboot system
 	# Using raspi-config or, alternatively, using following command:
 	sudo sed -E -i s/"(#)(dtparam=spi).*"/"\2=on"/ /boot/config.txt
 	sudo reboot
 ### Run example:
-	cd examples/waveshare_board
+	git clone https://github.com/ul-gh/PiPyADC
+	cd PiPyADC/examples/waveshare_board
 	./waveshare_example.py
 
 
