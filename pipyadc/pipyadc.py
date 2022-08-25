@@ -23,6 +23,7 @@ import pigpio as io
 from .ADS1256_definitions import *
 from . import ADS1256_default_config
 
+logger = logging.getLogger("PiPyADC")
 
 class ADS1256():
     """Python class for interfacing the ADS1256 and ADS1255 analog to
@@ -57,7 +58,7 @@ class ADS1256():
     # Default config is read from external file (module).
     def __init__(self, conf=ADS1256_default_config, pi=None):
         if hasattr(conf, "LOGLEVEL"):
-            logging.basicConfig(level=conf.LOGLEVEL)
+            logger.setLevel(conf.LOGLEVEL)
         # Set up the pigpio object if not provided as an argument
         # or already present as a class attribute
         if pi is None:
@@ -69,19 +70,57 @@ class ADS1256():
             self.__class__.pigpio_instance = pi
         # This is just a short-cut
         self.pi = self.__class__.pigpio_instance
-
         if not self.pi.connected:
             raise IOError("Could not connect to hardware via pigpio library")
+        # This is not needed for any function currently implemented here,
+        # but the attribute is kept for user code which relys on the value
+        self.v_ref = conf.v_ref
+        # Following constants are for the bit-banging funcionality and for
+        # timing specifics of the ADS1256 chip
+        self._DRDY_TIMEOUT = conf.DRDY_TIMEOUT
+        self._DRDY_DELAY = conf.DRDY_DELAY
+        # ADS1255/ADS1256 command timing specifications.
+        # Delay between requesting data and reading the bus for
+        # RDATA, RDATAC and RREG commands (datasheet: t_6 >= 50*CLKIN period).
+        self._DATA_TIMEOUT = 1E-6 + 50/conf.CLKIN_FREQUENCY
+        # Command-to-command timeout after SYNC and RDATAC
+        # commands (datasheet: t11)
+        self._SYNC_TIMEOUT = 1E-6 + 24/conf.CLKIN_FREQUENCY
+        # See datasheet ADS1256: CS needs to remain low
+        # for t_10 = 8*T_CLKIN after last SCLK falling edge of a command.
+        # Because this delay is longer than timeout t_11 for the
+        # RREG, WREG and RDATA commands of 4*T_CLKIN, we do not need
+        # the extra t_11 timeout for these commands when using software
+        # chip select selection and the _CS_TIMEOUT.
+        self._CS_TIMEOUT = 1E-6 + 8/conf.CLKIN_FREQUENCY
+        # When using hardware/hard-wired chip select, still a command-
+        # to command timeout of t_11 is needed as a minimum for the
+        # RREG, WREG and RDATA commands.
+        self._T_11_TIMEOUT = 1E-6 + 4/conf.CLKIN_FREQUENCY
+        self.configure_gpios(conf)
+        self.configure_spi(conf)
+        # Device reset for defined initial state
+        if conf.CHIP_HARD_RESET_ON_START:
+            self.hard_reset()
+        else:
+            self.reset()
+        self.preset_adc_registers(conf)
+        # This invokes a getter function..
+        chip_ID = self.chip_ID
+        logging.debug(f"Chip ID: {chip_ID}")
+        if chip_ID != 3:
+            raise RuntimeError("Received wrong chip ID value for ADS1256. "
+                               "Hardware connected?")
 
+    def configure_gpios(self, conf):
+        # The following four GPIOs are used for this ADS1256 implementation:
+        self._CS_PIN = conf.CS_PIN
+        self._DRDY_PIN = conf.DRDY_PIN
+        self._RESET_PIN = conf.RESET_PIN
+        # Not implemented
+        # self._PDWN_PIN = conf.PDWN_PIN
         # Config and initialize the SPI and GPIO pins used by the ADC.
-        # The following four entries are actively used by the code:
-        self.CS_PIN       = conf.CS_PIN
-        self.DRDY_PIN     = conf.DRDY_PIN
-        self.RESET_PIN    = conf.RESET_PIN
-        self.PDWN_PIN     = conf.PDWN_PIN
-        self.DRDY_TIMEOUT = conf.DRDY_TIMEOUT
-        self.DRDY_DELAY   = conf.DRDY_DELAY
-
+        # For configuration of multiple SPI devices on this bus:
         if conf.CS_PIN in self.__class__.occupied_cs_pins:
             raise RuntimeError("Chip select pin is already in use. Check config!")
         self.__class__.occupied_cs_pins.append(conf.CS_PIN)
@@ -95,12 +134,10 @@ class ADS1256():
                     logging.debug(f"Initializing chip select pin on GPIO no. {pin}")
                     self.pi.set_mode(pin, io.OUTPUT)
                     self.pi.write(pin, 1)
-
-        # Only one GPIO input:
+        # DRDY_PIN is the only GPIO input used by this ADC
         if conf.DRDY_PIN is not None:
-            self.DRDY_PIN = conf.DRDY_PIN
+            self._DRDY_PIN = conf.DRDY_PIN
             self.pi.set_mode(conf.DRDY_PIN, io.INPUT)
-
         # GPIO Outputs.
         # If chip select pin is set to None, the ADC pin is assumed to be hardwired to GND.
         for pin in (conf.CS_PIN,
@@ -111,7 +148,8 @@ class ADS1256():
                 logging.debug(f"Setting pin to output: {pin}")
                 self.pi.set_mode(pin, io.OUTPUT)
                 self.pi.write(pin, 1)
-
+    
+    def configure_spi(self, conf):
         # SPI bus config
         logging.debug(f"Activating SPI using software chip select on GPIO number: {conf.CS_PIN}")
         # The ADS1256 uses SPI MODE=1 <=> CPOL=0, CPHA=1. 
@@ -132,33 +170,7 @@ class ADS1256():
         if not self.spi_id >= 0:
             raise RuntimeError("SPI open error!")
         
-        # ADS1255/ADS1256 command timing specifications. Do not change.
-        # Delay between requesting data and reading the bus for
-        # RDATA, RDATAC and RREG commands (datasheet: t_6 >= 50*CLKIN period).
-        self._DATA_TIMEOUT = 1E-6 + 50/conf.CLKIN_FREQUENCY
-        # Command-to-command timeout after SYNC and RDATAC
-        # commands (datasheet: t11)
-        self._SYNC_TIMEOUT = 1E-6 + 24/conf.CLKIN_FREQUENCY
-        # See datasheet ADS1256: CS needs to remain low
-        # for t_10 = 8*T_CLKIN after last SCLK falling edge of a command.
-        # Because this delay is longer than timeout t_11 for the
-        # RREG, WREG and RDATA commands of 4*T_CLKIN, we do not need
-        # the extra t_11 timeout for these commands when using software
-        # chip select selection and the _CS_TIMEOUT.
-        self._CS_TIMEOUT   = 1E-6 + 8/conf.CLKIN_FREQUENCY
-        # When using hardware/hard-wired chip select, still a command-
-        # to command timeout of t_11 is needed as a minimum for the
-        # RREG, WREG and RDATA commands.
-        self._T_11_TIMEOUT   = 1E-6 + 4/conf.CLKIN_FREQUENCY
-
-        self.v_ref         = conf.v_ref
-
-        # Device reset for defined initial state
-        if conf.CHIP_HARD_RESET_ON_START:
-            self.hard_reset()
-        else:
-            self.reset()
-
+    def preset_adc_registers(self, conf):
         # Configure ADC registers:
         # Status register not yet set, only variable written to avoid multiple
         # triggering of the AUTOCAL procedure by changing other register flags
@@ -169,14 +181,6 @@ class ADS1256():
         self.drate         = conf.drate
         self.gpio          = conf.gpio
         self.status        = conf.status
-
-        # This invokes a getter function..
-        chip_ID = self.chip_ID
-        logging.debug(f"Chip ID: {chip_ID}")
-        if chip_ID != 3:
-            raise RuntimeError("Received wrong chip ID value for ADS1256. "
-                               "Hardware connected?")
-
 
     def __del__(self):
         if self.__class__.num_instances > 1:
@@ -189,16 +193,6 @@ class ADS1256():
 
 
     @property
-    def v_ref(self):
-        """Get/Set ADC analog reference input voltage differential.
-        This is only for calculation of output value scale factor.
-        """
-        return self._v_ref
-    @v_ref.setter
-    def v_ref(self, value):
-        self._v_ref = value
-
-    @property
     def pga_gain(self):
         """Get/Set ADC programmable gain amplifier setting.
         
@@ -209,7 +203,7 @@ class ADS1256():
         defined in file ADS1256_definitions.py.
 
         Note: When changing the gain setting at runtime, with activated
-        ACAL flag (AUTOCAL_ENABLE), this causes a Wait_DRDY() timeout
+        ACAL flag (AUTOCAL_ENABLE), this causes a _wait_DRDY() timeout
         for the calibration process to finish.
         """
         return 2**(self.read_reg(REG_ADCON)&0b111)
@@ -221,7 +215,7 @@ class ADS1256():
             log2val = int.bit_length(value) - 1
             self.write_reg(REG_ADCON, self.adcon&0b11111000 | log2val)
             if self._status & AUTOCAL_ENABLE:
-                self.wait_DRDY()
+                self._wait_DRDY()
 
     @property
     def v_per_digit(self):
@@ -248,13 +242,13 @@ class ADS1256():
     def status(self, value):
         self.write_reg(REG_STATUS, value)
         self._status = value
-        # When AUTOCAL flag has been enabled, a wait_DRDY() is needed here.
+        # When AUTOCAL flag has been enabled, a _wait_DRDY() is needed here.
         # When AUTOCAL flag had been enabled before and the BUFEN flag has not
         # been changed, this is likely not necessary, but FIXME: Better risk
         # a small possibly unnecessary delay than risk invalid data or settings.
-        # Thus, if AUTOCAL flag /is/ enabled, always do a wait_DRDY().
+        # Thus, if AUTOCAL flag /is/ enabled, always do a _wait_DRDY().
         if self._status & AUTOCAL_ENABLE:
-            self.wait_DRDY()
+            self._wait_DRDY()
 
     @property
     def mux(self):
@@ -297,14 +291,14 @@ class ADS1256():
     def adcon(self):
         """Get/Set value of the ADC configuration register, REG_ADCON.
         Note: When the AUTOCAL flag is enabled, this causes a
-        wait_DRDY() timeout.
+        _wait_DRDY() timeout.
         """
         return self.read_reg(REG_ADCON) 
     @adcon.setter
     def adcon(self, value):
         self.write_reg(REG_ADCON, value)
         if self._status & AUTOCAL_ENABLE:
-            self.wait_DRDY()
+            self._wait_DRDY()
 
     @property
     def drate(self):
@@ -322,6 +316,8 @@ class ADS1256():
     @drate.setter
     def drate(self, value):
         self.write_reg(REG_DRATE, value)
+        if self._status & AUTOCAL_ENABLE:
+            self._wait_DRDY()
 
     @property
     def gpio(self):
@@ -398,70 +394,18 @@ class ADS1256():
 
         Value for the ADS1256 on the Waveshare board seems to be a 3.
         """
-        self.wait_DRDY()
+        self._wait_DRDY()
         return self.read_reg(REG_STATUS) >> 4
     @chip_ID.setter
     def chip_ID(self, value):
         raise AttributeError("This is a read-only attribute")
 
-
-    def _chip_select(self):
-        # If chip select pin is hardwired to GND, do nothing.
-        if self.CS_PIN is not None:
-            self.pi.write(self.CS_PIN, 0)
-
-    # Release chip select and implement t_11 timeout
-    def _chip_release(self):
-        if self.CS_PIN is not None:
-            time.sleep(self._CS_TIMEOUT)
-            self.pi.write(self.CS_PIN, 1)
-        else:
-            # The minimum t_11 timeout between commands, see datasheet Figure 1.
-            time.sleep(self._T_11_TIMEOUT)
-
-    def _send_byte(self, mybyte):
-        # Sends a byte via the SPI bus
-        self.pi.spi_write(self.spi_id, chr(mybyte&0xFF))
-
-    def _read_byte(self):
-        # Returns a byte read via the SPI bus
-        ret_tuple = self.pi.spi_read(self.spi_id, 1)
-        return ord(ret_tuple[1])
-
-
     def wait_DRDY(self):
-        """Delays until the configured DRDY input pin is pulled to
-        active logic low level by the ADS1256 hardware or until the
-        DRDY_TIMEOUT in seconds has passed.
-
-        Arguments: None
-        Returns: None
-
-        The minimum necessary DRDY_TIMEOUT when not using the hardware
-        pin, can be up to approx. one and a half second, see datasheet..
-        
-        Manually invoking this function is necessary when using the
-        automatic calibration feature (ACAL flag). Then, use wait_DRDY()
-        after every access that changes the PGA gain bits in
-        ADCON register, the DRATE register or the BUFFEN flag.
+        """wait_DRDY() is now obsolete as the DRDY handling takes place
+        automatically when calling the STATUS, ADCON and DRATE register setters
         """
-        start = time.time()
-        elapsed = time.time() - start
-        # Waits for DRDY pin to go to active low or DRDY_TIMEOUT seconds to pass
-        if self.DRDY_PIN is not None:
-            drdy_level = self.pi.read(self.DRDY_PIN)
-            while (drdy_level == 1) and (elapsed < self.DRDY_TIMEOUT):
-                elapsed = time.time() - start
-                drdy_level = self.pi.read(self.DRDY_PIN)
-                # Sleep in order to avoid busy wait and reduce CPU load.
-                time.sleep(self.DRDY_DELAY)
-            if elapsed >= self.DRDY_TIMEOUT:
-                logging.warning("Timeout while polling configured DRDY pin!")
-        else:
-            time.sleep(self.DRDY_TIMEOUT)
-
-
-
+        logger.warn("wait_DRDY is now an obsolete function.")
+        self._wait_DRDY()
 
     def read_reg(self, register):
         """Returns data byte from the specified register
@@ -496,7 +440,7 @@ class ADS1256():
         """
         self._chip_select()
         self.pi.spi_write(self.spi_id, [CMD_SELFOCAL])
-        self.wait_DRDY()
+        self._wait_DRDY()
         # Release chip select and implement t_11 timeout
         self._chip_release()
 
@@ -509,7 +453,7 @@ class ADS1256():
         """
         self._chip_select()
         self.pi.spi_write(self.spi_id, [CMD_SELFGCAL])
-        self.wait_DRDY()
+        self._wait_DRDY()
         # Release chip select and implement t_11 timeout
         self._chip_release()
 
@@ -522,7 +466,7 @@ class ADS1256():
         """
         self._chip_select()
         self.pi.spi_write(self.spi_id, [CMD_SELFCAL])
-        self.wait_DRDY()
+        self._wait_DRDY()
         # Release chip select and implement t_11 timeout
         self._chip_release()
 
@@ -534,7 +478,7 @@ class ADS1256():
         """
         self._chip_select()
         self.pi.spi_write(self.spi_id, [CMD_SYSOCAL])
-        self.wait_DRDY()
+        self._wait_DRDY()
         # Release chip select and implement t_11 timeout
         self._chip_release()
 
@@ -546,7 +490,7 @@ class ADS1256():
         """
         self._chip_select()
         self.pi.spi_write(self.spi_id, [CMD_SYSGCAL])
-        self.wait_DRDY()
+        self._wait_DRDY()
         # Release chip select and implement t_11 timeout
         self._chip_release()
 
@@ -581,25 +525,25 @@ class ADS1256():
         """
         self._chip_select()
         self.pi.spi_write(self.spi_id, [CMD_RESET])
-        self.wait_DRDY()
+        self._wait_DRDY()
         # Release chip select and implement t_11 timeout
         self._chip_release()
 
     def hard_reset(self):
         """Reset by toggling the hardware pin as configured as "RESET_PIN".
         """
-        if self.RESET_PIN is None:
+        if self._RESET_PIN is None:
             raise RuntimeError("Reset pin is not configured!")
         else:
             logging.debug("Toggling reset pin...")
-            self.pi.write(self.RESET_PIN, 0)
+            self.pi.write(self._RESET_PIN, 0)
             time.sleep(100E-6)
-            self.pi.write(self.RESET_PIN, 1)
+            self.pi.write(self._RESET_PIN, 1)
             # At hardware initialisation, a settling time for the oscillator
             # is necessary before doing any register access.
             # This is approx. 30ms, according to the datasheet.
             time.sleep(0.03)
-            self.wait_DRDY()
+            self._wait_DRDY()
  
 
     def sync(self):
@@ -642,7 +586,7 @@ class ADS1256():
         """
         self._chip_select()
         # Wait for data to be ready
-        self.wait_DRDY()
+        self._wait_DRDY()
         # Send the read command
         self.pi.spi_write(self.spi_id, [CMD_RDATA])
         # Wait through the data pause
@@ -694,7 +638,7 @@ class ADS1256():
         time.sleep(self._SYNC_TIMEOUT)
         self.pi.spi_write(self.spi_id, [CMD_WAKEUP])
 
-        self.wait_DRDY()
+        self._wait_DRDY()
         # Read data from ADC, which still returns the /previous/ conversion
         # result from before changing inputs
         self.pi.spi_write(self.spi_id, [CMD_RDATA])
@@ -712,7 +656,6 @@ class ADS1256():
             return int24_result
         else:
             return int24_result - 0x1000000
-
 
     def read_and_next_is(self, diff_channel):
         """Reads ADC data of presently running or already finished
@@ -735,7 +678,7 @@ class ADS1256():
             which automates the process for cyclic data acquisition.
         """
         self._chip_select()
-        self.wait_DRDY()
+        self._wait_DRDY()
 
         # Setting mux position for next cycle"
         self.pi.spi_write(
@@ -763,7 +706,6 @@ class ADS1256():
             return int24_result
         else:
             return int24_result - 0x1000000
-
 
     def read_continue(self, ch_sequence, ch_buffer=None):
         """Continues reading a cyclic sequence of ADC input channel pin pairs.
@@ -801,7 +743,6 @@ class ADS1256():
             ch_buffer[i] = self.read_and_next_is(ch_sequence[(i+1)%buf_len])
         return ch_buffer
 
-
     def read_sequence(self, ch_sequence, ch_buffer=None):
         """Reads a sequence of ADC input channel pin pairs.
 
@@ -837,5 +778,42 @@ class ADS1256():
         return ch_buffer
 
 
+    # Delays until the configured DRDY input pin is pulled to
+    # active logic low level by the ADS1256 hardware or until the
+    # _DRDY_TIMEOUT has passed.
+    # 
+    # The minimum necessary _DRDY_TIMEOUT when not using the hardware
+    # pin, can be up to approx. one and a half second, see datasheet..
+    # 
+    # This delay is also necessary when using the automatic calibration feature
+    # (ACAL flag), after every access that changes the PGA gain bits in
+    # ADCON register, the DRATE register or the BUFFEN flag in status register.
+    def _wait_DRDY(self):
+        start = time.time()
+        elapsed = time.time() - start
+        # Waits for DRDY pin to go to active low or _DRDY_TIMEOUT seconds to pass
+        if self._DRDY_PIN is not None:
+            drdy_level = self.pi.read(self._DRDY_PIN)
+            while (drdy_level == 1) and (elapsed < self._DRDY_TIMEOUT):
+                elapsed = time.time() - start
+                drdy_level = self.pi.read(self._DRDY_PIN)
+                # Sleep in order to avoid busy wait and reduce CPU load.
+                time.sleep(self._DRDY_DELAY)
+            if elapsed >= self._DRDY_TIMEOUT:
+                logging.warning("Timeout while polling configured DRDY pin!")
+        else:
+            time.sleep(self._DRDY_TIMEOUT)
 
+    def _chip_select(self):
+        # If chip select pin is hardwired to GND, do nothing.
+        if self._CS_PIN is not None:
+            self.pi.write(self._CS_PIN, 0)
 
+    # Release chip select and implement t_11 timeout
+    def _chip_release(self):
+        if self._CS_PIN is not None:
+            time.sleep(self._CS_TIMEOUT)
+            self.pi.write(self._CS_PIN, 1)
+        else:
+            # The minimum t_11 timeout between commands, see datasheet Figure 1.
+            time.sleep(self._T_11_TIMEOUT)
