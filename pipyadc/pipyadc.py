@@ -130,7 +130,7 @@ class ADS1256():
     
     def configure_spi(self, conf):
         # SPI bus config
-        logging.debug(f"Activating SPI, SW chip select on GPIO: {conf.CS_PIN}")
+        logger.debug(f"Activating SPI, SW chip select on GPIO: {conf.CS_PIN}")
         # The ADS1256 uses SPI MODE=1 <=> CPOL=0, CPHA=1. 
         if hasattr(conf, "SPI_FLAGS"):
             spi_flags = conf.SPI_FLAGS
@@ -148,7 +148,7 @@ class ADS1256():
             raise e from None
         # Add to class attribute
         self.open_spi_handles[self.spi_handle] = self.spi_handle
-        logging.debug(f"Obtained SPI device handle: {self.spi_handle}")
+        logger.debug(f"Obtained SPI device handle: {self.spi_handle}")
         
     def preset_adc_registers(self, conf):
         # Configure ADC registers:
@@ -165,7 +165,7 @@ class ADS1256():
     def check_chip_id(self):
         # This invokes a getter function..
         chip_ID = self.chip_ID
-        logging.debug(f"Chip ID: {chip_ID}")
+        logger.debug(f"Chip ID: {chip_ID}")
         if chip_ID != 3:
             self.stop_close_all()
             raise RuntimeError("Received wrong chip ID value for ADS1256. "
@@ -174,13 +174,13 @@ class ADS1256():
     def stop(self):
         """Close own SPI handle, only stop pigpio connection if we created it
         """
-        logging.debug(f"Closing SPI handle: {self.spi_handle}")
+        logger.debug(f"Closing SPI handle: {self.spi_handle}")
         self.pi.spi_close(self.spi_handle)
         self.open_spi_handles.pop(self.spi_handle)
         self.exclusive_pins_used.pop(self._CS_PIN)
         self.exclusive_pins_used.pop(self._DRDY_PIN)
         if self.created_pigpio:
-            logging.debug(f"Closing PIGPIO instance")
+            logger.debug(f"Closing PIGPIO instance")
             self.pi.stop()
         # Else leaving external PIGPIO instance active
 
@@ -188,11 +188,11 @@ class ADS1256():
         """Close all open pigpio SPI handles and stop pigpio connection
         """
         for handle in reversed(self.open_spi_handles):
-            logging.debug(f"Closing SPI handle: {handle}")
+            logger.debug(f"Closing SPI handle: {handle}")
             self.pi.spi_close(handle)
         self.open_spi_handles.clear()
         self.exclusive_pins_used.clear()
-        logging.debug(f"Closing PIGPIO instance")
+        logger.debug(f"Closing PIGPIO instance")
         self.pi.stop()
 
 
@@ -547,7 +547,7 @@ class ADS1256():
             self.stop_close_all()
             raise RuntimeError("Reset pin is not configured!")
         else:
-            logging.debug("Performing hard RESET...")
+            logger.debug("Performing hard RESET...")
             self.pi.write(self._RESET_PIN, 0)
             time.sleep(100E-6)
             self.pi.write(self._RESET_PIN, 1)
@@ -788,7 +788,7 @@ class ADS1256():
                 # Sleep in order to avoid busy wait and reduce CPU load.
                 time.sleep(self._DRDY_DELAY)
             if elapsed >= self._DRDY_TIMEOUT:
-                logging.warning("Timeout while polling configured DRDY pin!")
+                logger.warning("Timeout while polling configured DRDY pin!")
         else:
             time.sleep(self._DRDY_TIMEOUT)
 
@@ -808,14 +808,14 @@ class ADS1256():
 
     def _init_output(self, pin, init_state, name="output"):
         if pin is not None and pin not in self.pins_initialized:
-            logging.debug(f"Setting as output: {pin} ({name})")
+            logger.debug(f"Setting as output: {pin} ({name})")
             self.pi.set_mode(pin, pigpio.OUTPUT)
             self.pi.write(pin, init_state)
             self.pins_initialized[pin] = pin
 
     def _init_input(self, pin, init_state, name="input"):
         if pin is not None and pin not in self.pins_initialized:
-            logging.debug(f"Setting as input: {pin} ({name})")
+            logger.debug(f"Setting as input: {pin} ({name})")
             self.pi.set_mode(pin, pigpio.INPUT)
             self.pi.write(pin, init_state)
             self.pins_initialized[pin] = pin
