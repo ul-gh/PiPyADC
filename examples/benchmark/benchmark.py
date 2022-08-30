@@ -1,45 +1,50 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
+#!/usr/bin/env python3
 """Benchmark for class ADS1256 in pipyadc package
 
-Hardware: Isoflux ADS1256 board interfaced to the Raspberry Pi 3
+Hardware: IsoFlux ADS1256 board interfaced to the Raspberry Pi 3
  
 Ulrich Lukas 2022-06-28
 """
-import sys
 import time
-from pipyadc.ADS1256_definitions import *
+import logging
 from pipyadc import ADS1256
+from pipyadc.ADS1256_definitions import *
+
+# ADC settings for benchmark
 import bench_config
 
-# Input pin for the potentiometer on the Waveshare Precision ADC board:
+logging.basicConfig(level=logging.DEBUG)
+
+print("\x1B[2J\x1B[H") # Clear screen
+print(__doc__)
+print("\nPress CTRL-C to exit.\n")
+
+def text_format_8_ch(digits, volts):
+    digits_str = ", ".join([f"{i: 8d}" for i in digits])
+    volts_str = ", ".join([f"{i: 8.3f}" for i in volts])
+    text = ("    AIN0,     AIN1,     AIN2,     AIN3, "
+            "    AIN4,     AIN5,     AIN6,     AIN7\n"
+            f"{digits_str}\n\n"
+            "Values converted to volts:\n"
+            f"{volts_str}\n"
+            )
+    return text
+
 POTI = POS_AIN0|NEG_AINCOM
-# Light dependant resistor of the same board:
 LDR  = POS_AIN1|NEG_AINCOM
-# Eight channels
 CH_SEQUENCE = (POTI, LDR)
-################################################################################
 
 
-def do_measurement():
-    ### STEP 1: Initialise ADC object:
-    ads = ADS1256(bench_config)
+def do_measurement(ads):
     n_loop = 1000
-
-    ### STEP 2: Gain and offset self-calibration:
-    ads.cal_self()
-
     timestamp1 = time.time()
-    for a in range(1, n_loop):
-        ### STEP 3: Get data:
+    for _ in range(1, n_loop):
         raw_channels = ads.read_continue(CH_SEQUENCE)
 #        raw_channels = ads.read_sequence(CH_SEQUENCE)
-
     timestamp2 = time.time()
 
     voltages     = [i * ads.v_per_digit for i in raw_channels]
-    nice_output(raw_channels, voltages)
-
+    print(text_format_8_ch(raw_channels, voltages))
     # Timing info
     delta = timestamp2 - timestamp1
     print("Delta seconds: {}".format(delta))
@@ -49,33 +54,11 @@ def do_measurement():
     print("Overhead per sample microseconds: {}".format(overhead))
 
 
-
-#############################################################################
-# Format nice looking text output:
-def nice_output(digits, volts):
-    sys.stdout.write(
-"""
-These are the raw sample values for the channels:
-Poti_CH0,  LDR_CH1,     AIN2,     AIN3,     AIN4,     AIN7, Poti NEG, Short 0V
-"""
-        + ", ".join(["{: 8d}".format(i) for i in digits])
-        +
-"""
-
-These are the sample values converted to voltage in V for the channels:
-Poti_CH0,  LDR_CH1,     AIN2,     AIN3,     AIN4,     AIN7, Poti NEG, Short 0V
-"""
-        + ", ".join(["{: 8.3f}".format(i) for i in volts])
-    )
-
-
 # Start data acquisition
 try:
-    print("\033[2J\033[H") # Clear screen
-    print(__doc__)
-    print("\nPress CTRL-C to exit.")
-    do_measurement()
+    with ADS1256(bench_config) as ads:
+        ads.cal_self()
+        do_measurement(ads)
 
 except (KeyboardInterrupt):
-    print("\n"*8 + "User exit.\n")
-    sys.exit(0)
+    print("\nUser exit.\n")

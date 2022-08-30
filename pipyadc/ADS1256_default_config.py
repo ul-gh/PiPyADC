@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import logging
 from pipyadc.ADS1256_definitions import *
 ################ Configuration file for one ADS1256 instance  #################
@@ -26,7 +25,7 @@ SPI_FREQUENCY = 976563
 #SPI_FREQUENCY = 1953125
 # If set to True this will perform a chip reset using the hardware reset line
 # when initializing the device.
-CHIP_HARD_RESET_ON_START = True
+CHIP_HARD_RESET_ON_START = False
 
 #### Raspberry Pi GPIO configuration ##########################################
 # =====> NEW in version 2 since using pigpio instead of wiringpi library:
@@ -94,7 +93,7 @@ status = BUFFER_ENABLE
 # Default: positive input = AIN0, negative input = AINCOM
 mux = POS_AIN0 | NEG_AINCOM
 # REG_ADCON:
-# Disable clk out signal (not needed, source of disturbance),
+# Disable clk out signal (if not needed, source of disturbance),
 # sensor detect current sources disabled, gain setting as defined above:
 adcon = CLKOUT_OFF | SDCS_OFF | gain_flags
 # REG_DRATE: 

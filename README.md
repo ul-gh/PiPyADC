@@ -18,6 +18,13 @@ NEW in version 2:
 * Working implementation for multiple ADS125x devices on the same SPI bus
 * Proper configuration of unused chip-select line for the Waveshare example
 
+Since version 2.1:
+* ADS1256 now supports the Python with statement by acting as a Context Manager,
+  allowing for automatic clean-up of SPI device and pigpio resources at exit.
+  (See waveshare_example.py)
+* Many bug-fixes involving initialisation and clean-up and running multiple
+  devices on the same SPI bus
+
 Limitation:
 * Same as for version 1: This does not feature high-speed or low delays
 
@@ -29,7 +36,7 @@ Uses code from: https://github.com/heathsd/PyADS1256
 License: GNU LGPLv2.1, see:
 https://www.gnu.org/licenses/old-licenses/lgpl-2.1-standalone.html
 
-Ulrich Lukas, 2022-06-28
+Ulrich Lukas, 2022-08-30
 
 ## Run example on Raspberry Pi OS:
 ### Install:

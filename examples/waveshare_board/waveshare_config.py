@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import logging
 from pipyadc.ADS1256_definitions import *
 ################ Configuration file for one ADS1256 instance  #################
@@ -94,7 +93,7 @@ status = BUFFER_ENABLE
 # Default: positive input = AIN0, negative input = AINCOM
 mux = POS_AIN0 | NEG_AINCOM
 # REG_ADCON:
-# Disable clk out signal (not needed, source of disturbance),
+# Disable clk out signal (if not needed, source of disturbance),
 # sensor detect current sources disabled, gain setting as defined above:
 adcon = CLKOUT_OFF | SDCS_OFF | gain_flags
 # REG_DRATE: 
@@ -272,5 +271,3 @@ Available Registers with address definitions:
         DRATE_5         = 0b00010011 # 5SPS
         DRATE_2_5       = 0b00000011 # 2.5SPS
 """
-
-
