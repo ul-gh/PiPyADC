@@ -187,7 +187,7 @@ class ADS1256():
     def stop_close_all(self):
         """Close all open pigpio SPI handles and stop pigpio connection
         """
-        for handle in reversed(self.open_spi_handles):
+        for handle in reversed(list(self.open_spi_handles.values())):
             logger.debug(f"Closing SPI handle: {handle}")
             self.pi.spi_close(handle)
         self.open_spi_handles.clear()
