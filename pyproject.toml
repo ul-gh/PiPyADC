@@ -1,2 +1,36 @@
+[project]
+name = "pipyadc"
+description = "Python package for interfacing Texas Instruments ADS1255 and ADS1256 SPI bus based ADCs with the Raspberry Pi"
+readme = "README.md"
+authors = [{ name = "Ulrich Lukas", email = "ul-gh@datenparkplatz.de" }]
+dynamic = ["version"]
+dependencies = ["pigpio"]
+requires-python = ">= 3.11"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Topic :: Software Development :: Embedded Systems",
+    "Programming Language :: Python :: 3",
+    "Operating System :: POSIX :: Linux",
+]
+
+[project.urls]
+Homepage = "https://github.com/ul-gh/PiPyADC"
+
 [build-system]
-requires = ["setuptools >= 38.3.0", "wheel", "versioneer-518"]
+requires = ["setuptools", "setuptools-scm"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.package-data]
+bms_gateway = ["*.toml"]
+
+[tool.setuptools_scm]
+# No config needed but section must be present
+
+[tool.pyright]
+reportUnknownMemberType = "hint"
+
+[tool.ruff.lint]
+select = ["ALL"]
+
+[tool.ruff]
+line-length = 100
