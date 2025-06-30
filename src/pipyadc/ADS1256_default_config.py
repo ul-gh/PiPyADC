@@ -8,24 +8,29 @@ from pipyadc.ADS1256_definitions import *
 # To create multiple class instances for more than one AD converter, a unique
 # configuration must be specified as argument for each instance.
 
-#LOGLEVEL = logging.WARNING
+# LOGLEVEL = logging.WARNING
 LOGLEVEL = logging.WARNING
 
 # 0 for main SPI bus, 1 for auxiliary SPI bus.
 SPI_BUS = 0
+
 # SPI clock rate in Hz. The ADS1256 supports a minimum of 1/10th of the output
 # sample data rate in Hz to 1/4th of the oscillator CLKIN_FREQUENCY which
 # results in a value of 1920000 Hz for the Waveshare board. However, since
 # the Raspberry pi only supports power-of-two fractions of the 250MHz system
 # clock, the closest value would be 1953125 Hz, which is slightly out of spec
 # for the ADS1256. Choosing 250MHz/256 = 976563 Hz is a safe choice.
-#SPI_FREQUENCY = 976563
+# SPI_FREQUENCY = 976563
 SPI_FREQUENCY = 976563
 # Risking the slightly out-of-spec speed:
-#SPI_FREQUENCY = 1953125
+# SPI_FREQUENCY = 1953125
+
 # If set to True this will perform a chip reset using the hardware reset line
 # when initializing the device.
 CHIP_HARD_RESET_ON_START = False
+
+# This is expected to be "3". Do not change unless hardware is changed.
+CHIP_ID: int = 3
 
 #### Raspberry Pi GPIO configuration ##########################################
 # =====> NEW in version 2 since using pigpio instead of wiringpi library:
@@ -34,25 +39,25 @@ CHIP_HARD_RESET_ON_START = False
 # Tuple of all (chip select) GPIO numbers to be configured as an output and
 # initialised to (inactive) logic high state before bus communication starts.
 # Necessary for more than one SPI device if GPIOs are not otherwise handled.
-#CHIP_SELECT_GPIOS_INITIALIZE = (22, 23)
+# CHIP_SELECT_GPIOS_INITIALIZE = (22, 23)
 CHIP_SELECT_GPIOS_INITIALIZE = (22, 23)
 # Chip select GPIO pin number.
 # This is required as hardware chip select can not be used with the ADS125x
 # devices using this library
-#CS_PIN      = 22
-CS_PIN      = 22
+# CS_PIN      = 22
+CS_PIN = 22
 # If DRDY is not connected to an input, a sufficient DRDY_TIMEOUT must be
 # specified further below and aquisition will be slower.
-#DRDY_PIN    = 17
-DRDY_PIN    = 17
+# DRDY_PIN    = 17
+DRDY_PIN = 17
 # Hardware reset pin is optional but strongly suggested in case multiple devices
 # are connected to the bus as the ADS125x will lock-up in case multiple chips
 # are selected simultaneously by accident.
-#RESET_PIN   = 18 # Set to None if not used.
-RESET_PIN   = 18 # Set to None if not used.
+# RESET_PIN   = 18 # Set to None if not used.
+RESET_PIN = 18  # Set to None if not used.
 # Optional power down pin
-#PDWN_PIN    = 27 # Set to None if not used.
-PDWN_PIN    = 27 # Set to None if not used.
+# PDWN_PIN    = 27 # Set to None if not used.
+PDWN_PIN = 27  # Set to None if not used.
 ###############################################################################
 
 ##################  ADS1256 Constant Configuration Settings  ##################
@@ -60,10 +65,10 @@ PDWN_PIN    = 27 # Set to None if not used.
 # does not respond. See table 21 of ADS1256 datasheet: When using a
 # sample rate of 2.5 SPS and issuing a self calibration command,
 # the timeout can be up to 1228 milliseconds:
-DRDY_TIMEOUT    = 2
+DRDY_TIMEOUT = 2
 # Optional delay in seconds to avoid busy wait and reduce CPU load when
 # polling the DRDY pin. Default is 0.000001 or 1 µs (timing not accurate)
-DRDY_DELAY      = 0.000001
+DRDY_DELAY = 0.000001
 # Master clock rate in Hz. Default is 7680000:
 CLKIN_FREQUENCY = 7680000
 ################################################################################
@@ -96,9 +101,9 @@ mux = POS_AIN0 | NEG_AINCOM
 # Disable clk out signal (if not needed, source of disturbance),
 # sensor detect current sources disabled, gain setting as defined above:
 adcon = CLKOUT_OFF | SDCS_OFF | gain_flags
-# REG_DRATE: 
+# REG_DRATE:
 # 10 SPS places a filter zero at 50 Hz and 60 Hz for line noise rejection
-drate  = DRATE_10
+drate = DRATE_10
 # REG_IO: No GPIOs needed
 gpio = 0x00
 ################################################################################
@@ -271,5 +276,3 @@ Available Registers with address definitions:
         DRATE_5         = 0b00010011 # 5SPS
         DRATE_2_5       = 0b00000011 # 2.5SPS
 """
-
-
