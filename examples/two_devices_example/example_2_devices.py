@@ -33,7 +33,7 @@ print("\nPress CTRL-C to exit.\n")
 screen = TextScreen()
 
 
-def text_format_8_ch(digits: int, volts: float) -> str:
+def text_format_8_ch(digits: np.Array[int], volts: np.Array[float]) -> str:
     digits_str = ", ".join([f"{i: 8d}" for i in digits])
     volts_str = ", ".join([f"{i: 8.3f}" for i in volts])
     text = (
