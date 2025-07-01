@@ -496,15 +496,14 @@ class ADS1256:
 
     def hard_reset(self) -> None:
         """Reset by toggling the hardware pin as configured as "RESET_PIN"."""
-        conf = self.conf
-        if conf.RESET_PIN is None:
+        if self._RESET_PIN is None:
             self.stop_close_all()
             msg = "Reset pin is not configured!"
             raise RuntimeError(msg)
         logger.debug("Performing hard RESET...")
-        self.pi.write(conf.RESET_PIN, pigpio.LOW)
+        self.pi.write(self._RESET_PIN, pigpio.LOW)
         time.sleep(100e-6)
-        self.pi.write(conf.RESET_PIN, pigpio.HIGH)
+        self.pi.write(self._RESET_PIN, pigpio.HIGH)
         # At hardware initialisation, a settling time for the oscillator
         # is necessary before doing any register access.
         # This is approx. 30ms, according to the datasheet.
@@ -523,7 +522,7 @@ class ADS1256:
         """
         self._chip_select()
         self.pi.spi_write(self.spi_handle, CMD_SYNC.to_bytes())
-        time.sleep(self.conf.SYNC_TIMEOUT)
+        time.sleep(self._SYNC_TIMEOUT)
         self.pi.spi_write(self.spi_handle, CMD_WAKEUP.to_bytes())
         # Release chip select and implement t_11 timeout
         self._chip_release()
@@ -744,37 +743,34 @@ class ADS1256:
     # (ACAL flag), after every access that changes the PGA gain bits in
     # ADCON register, the DRATE register or the BUFFEN flag in status register.
     def _wait_drdy(self) -> None:
-        conf = self.conf
         start = time.time()
         elapsed = time.time() - start
         # Waits for DRDY pin to go to active low or _DRDY_TIMEOUT seconds to pass
-        if conf.DRDY_PIN is not None:
-            drdy_level = self.pi.read(conf.DRDY_PIN)
-            while (drdy_level == pigpio.HIGH) and (elapsed < conf.DRDY_TIMEOUT):
+        if self._DRDY_PIN is not None:
+            drdy_level = self.pi.read(self._DRDY_PIN)
+            while (drdy_level == pigpio.HIGH) and (elapsed < self._DRDY_TIMEOUT):
                 elapsed = time.time() - start
-                drdy_level = self.pi.read(conf.DRDY_PIN)
+                drdy_level = self.pi.read(self._DRDY_PIN)
                 # Sleep in order to avoid busy wait and reduce CPU load.
-                time.sleep(conf.DRDY_DELAY)
-            if elapsed >= conf.DRDY_TIMEOUT:
+                time.sleep(self._DRDY_DELAY)
+            if elapsed >= self._DRDY_TIMEOUT:
                 logger.warning("Timeout while polling configured DRDY pin!")
         else:
-            time.sleep(conf.DRDY_TIMEOUT)
+            time.sleep(self._DRDY_TIMEOUT)
 
     def _chip_select(self) -> None:
-        conf = self.conf
         # If chip select pin is hardwired to GND, do nothing.
-        if conf.CS_PIN is not None:
-            self.pi.write(conf.CS_PIN, pigpio.LOW)
+        if self._CS_PIN is not None:
+            self.pi.write(self._CS_PIN, pigpio.LOW)
 
     # Release chip select and implement t_11 timeout
     def _chip_release(self) -> None:
-        conf = self.conf
-        if conf.CS_PIN is not None:
-            time.sleep(conf.CS_TIMEOUT)
-            self.pi.write(conf.CS_PIN, pigpio.HIGH)
+        if self._CS_PIN is not None:
+            time.sleep(self._CS_TIMEOUT)
+            self.pi.write(self._CS_PIN, pigpio.HIGH)
         else:
             # The minimum t_11 timeout between commands, see datasheet Figure 1.
-            time.sleep(conf.T_11_TIMEOUT)
+            time.sleep(self._T_11_TIMEOUT)
 
     def _init_output(self, pin: int, init_state: int, name: str = "output") -> None:
         if pin is not None and pin not in self.pins_initialized:
@@ -801,10 +797,9 @@ class ADS1256:
 
     def _read_reg_bytes(self, register_start: int, count: int = 1) -> bytearray:
         """Return data bytes from the specified registers."""
-        conf = self.conf
         self._chip_select()
         self.pi.spi_write(handle=self.spi_handle, data=(CMD_RREG | register_start, count - 1))
-        time.sleep(conf.DATA_TIMEOUT)
+        time.sleep(self._DATA_TIMEOUT)
         n_inbytes: int
         # pigpio library has wrong return type (str instead of bytearray) in case no bytes are read
         inbytes: bytearray | Literal[""]
