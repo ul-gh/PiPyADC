@@ -161,6 +161,7 @@ class ADS1256:
         self._CS_PIN = conf.CS_PIN
         self._DRDY_PIN = conf.DRDY_PIN
         self._RESET_PIN = conf.RESET_PIN
+        self._PDWN_PIN = conf.PDWN_PIN
         # This is not needed for any function currently implemented here,
         # but the attribute is kept for user code which relys on the value
         self.v_ref = conf.v_ref
@@ -209,7 +210,7 @@ class ADS1256:
         logger.debug(f"Closing SPI handle: {self.spi_handle}")
         self.pi.spi_close(self.spi_handle)
         self.open_spi_handles.pop()
-        for pin in (self._CS_PIN, self._DRDY_PIN, self._RESET_PIN):
+        for pin in (self._CS_PIN, self._DRDY_PIN):
             if pin is not None:
                 self.exclusive_pins_used.remove(pin)
         if self.created_pigpio:
