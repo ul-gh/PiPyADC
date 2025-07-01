@@ -97,6 +97,7 @@ class ADS1256:
                 msg = "Config error: DRDY pin already used. Must be exclusive!"
                 raise ValueError(msg)
             self._init_input(conf.DRDY_PIN, pigpio.PUD_DOWN, "data ready")
+            self.exclusive_pins_used.add(conf.DRDY_PIN)
         # GPIO Outputs. If chip select pin is set to None, the
         # respective ADC input pin is assumed to be hardwired to GND.
         if conf.RESET_PIN is not None:
@@ -208,8 +209,9 @@ class ADS1256:
         logger.debug(f"Closing SPI handle: {self.spi_handle}")
         self.pi.spi_close(self.spi_handle)
         self.open_spi_handles.pop()
-        self.exclusive_pins_used.remove(self._CS_PIN)
-        self.exclusive_pins_used.remove(self._DRDY_PIN)
+        for pin in (self._CS_PIN, self._DRDY_PIN, self._RESET_PIN):
+            if pin is not None:
+                self.exclusive_pins_used.remove(pin)
         if self.created_pigpio:
             logger.debug(f"Closing PIGPIO instance")
             self.pi.stop()
