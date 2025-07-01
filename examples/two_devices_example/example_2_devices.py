@@ -1,44 +1,50 @@
 #!/usr/bin/env python3
-"""PiPyADC: Example file for class ADS1256 in module pipyadc:
+"""PiPyADC: Example file for class ADS1256 in module pipyadc.
 
 Two ADS1256 devices on the same SPI bus,
 cycling through eight input channels each.
 
 Hardware: Isoflux ADS1256 board interfaced to the Raspberry Pi 2B, 3B or 4
- 
+
 Ulrich Lukas 2022-06-28
 """
-import time
-import pigpio
+
 import logging
-import numpy as np
-from pipyadc import ADS1256
-from pipyadc.utils import TextScreen
-from pipyadc.ADS1256_definitions import *
+import time
+from typing import NoReturn
 
 # Two config files for different ADS1256 devices connected to the same SPI bus
 import device1_config
 import device2_config
+import numpy as np
+import pigpio
+
+from pipyadc import ADS1256
+from pipyadc.ADS1256_definitions import *
+from pipyadc.utils import TextScreen
 
 logging.basicConfig(level=logging.DEBUG)
 
-print("\x1B[2J\x1B[H") # Clear screen
+print("\x1b[2J\x1b[H")  # Clear screen
 print(__doc__)
 print("\nPress CTRL-C to exit.\n")
 
 # For in-place text-mode output
 screen = TextScreen()
 
-def text_format_8_ch(digits, volts):
+
+def text_format_8_ch(digits: int, volts: float) -> str:
     digits_str = ", ".join([f"{i: 8d}" for i in digits])
     volts_str = ", ".join([f"{i: 8.3f}" for i in volts])
-    text = ("    AIN0,     AIN1,     AIN2,     AIN3, "
-            "    AIN4,     AIN5,     AIN6,     AIN7\n"
-            f"{digits_str}\n\n"
-            "Values converted to volts:\n"
-            f"{volts_str}\n"
-            )
+    text = (
+        "    AIN0,     AIN1,     AIN2,     AIN3, "
+        "    AIN4,     AIN5,     AIN6,     AIN7\n"
+        f"{digits_str}\n\n"
+        "Values converted to volts:\n"
+        f"{volts_str}\n"
+    )
     return text
+
 
 ### ADS1256 two-devices configuration EXAMPLE ###
 CH0 = POS_AIN0 | NEG_AINCOM
@@ -53,11 +59,11 @@ CH7 = POS_AIN7 | NEG_AINCOM
 CH_SEQUENCE = CH0, CH1, CH2, CH3, CH4, CH5, CH6, CH7
 
 
-def loop_forever_measurements(ads1, ads2):
+def loop_forever_measurements(ads1: ADS1256, ads2: ADS1256) -> NoReturn:
     # Channel gain must be multiplied by LSB weight in volts per digit to
     # display each channels input voltage. The result is a np.array again here:
-    buffer1 = np.zeros(len(CH_SEQUENCE), dtype=np.int)
-    buffer2 = np.zeros(len(CH_SEQUENCE), dtype=np.int)
+    buffer1 = np.zeros(len(CH_SEQUENCE), dtype=int)
+    buffer2 = np.zeros(len(CH_SEQUENCE), dtype=int)
     # Limit output data rate to fixed time interval
     timestamp = time.time()
     # Endless loop reading into buffer and displaying results
@@ -80,20 +86,22 @@ def loop_forever_measurements(ads1, ads2):
             screen.refresh()
 
 
+# PIGPIO instance, could be a re-used instance from elsewhere.
+# ADS1256 class will create an instance if not given an exisging one.
+pi = pigpio.pi()
+### Initialise ADC objects for two chips connected to the SPI bus.
+ads1 = ADS1256(device1_config, pi)
+ads2 = ADS1256(device2_config, pi)
+# The ADC instances can also be configured at run-time
+ads1.drate = DRATE_100
+ads2.drate = DRATE_100
+### Gain and offset self-calibration:
+ads1.cal_self()
+ads2.cal_self()
+
+
 # Startup and stop handling, freeing pigpio and ADS1256 resources at exit
 try:
-    # PIGPIO instance, could be a re-used instance from elsewhere.
-    # ADS1256 class will create an instance if not given an exisging one.
-    pi = pigpio.pi()
-    ### Initialise ADC objects for two chips connected to the SPI bus.
-    ads1 = ADS1256(device1_config, pi)
-    ads2 = ADS1256(device2_config, pi)
-    # The ADC instances can also be configured at run-time
-    ads1.drate = DRATE_100
-    ads2.drate = DRATE_100
-    ### Gain and offset self-calibration:
-    ads1.cal_self()
-    ads2.cal_self()
     # Main loop
     loop_forever_measurements(ads1, ads2)
 
