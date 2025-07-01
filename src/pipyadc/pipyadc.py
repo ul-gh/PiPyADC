@@ -209,7 +209,7 @@ class ADS1256:
         """Close own SPI handle, only stop pigpio connection if we created it."""
         logger.debug(f"Closing SPI handle: {self.spi_handle}")
         self.pi.spi_close(self.spi_handle)
-        self.open_spi_handles.pop()
+        self.open_spi_handles.remove(self.spi_handle)
         for pin in (self._CS_PIN, self._DRDY_PIN):
             if pin is not None:
                 self.exclusive_pins_used.remove(pin)
