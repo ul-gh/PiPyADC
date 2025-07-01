@@ -130,8 +130,7 @@ class ADS1256:
         # Configure ADC registers:
         conf = self.conf
         self._write_reg_uint8(REG_MUX, conf.mux)
-        adcon_flags: int = conf.clock_output | conf.sensor_detect | conf.pga_gain
-        self._write_reg_uint8(REG_ADCON, adcon_flags)
+        self._write_reg_uint8(REG_ADCON, conf.adcon)
         self._write_reg_uint8(REG_DRATE, conf.drate)
         # Status register written last as this can re-trigger ADC conversion
         self._write_reg_uint8(REG_STATUS, conf.status)
